@@ -6,8 +6,7 @@
 
 Zero-code ASM bytecode tracing for Android apps. Automatically instruments all methods with entry/exit/catch/branch logging — no manual log statements needed.
 
-<!-- TODO: Ana ekran görüntüsü ekle -->
-<!-- ![TraceFlow Studio Plugin](screenshots/studio-plugin-overview.png) -->
+![TraceFlow Flat View](screenshots/flat-view.png)
 
 ## Features
 
@@ -105,15 +104,14 @@ traceflow {
 3. Click **Start**
 4. Run your app — trace events appear in real time
 
-<!-- TODO: Kullanım ekran görüntüsü ekle -->
-<!-- ![TraceFlow Usage](screenshots/studio-plugin-monitoring.png) -->
+![TraceFlow Source Navigation](screenshots/source-navigation.png)
 
 ## Studio Plugin Features
 
-<!-- TODO: Her feature için ekran görüntüsü ekle -->
-
 - **Flat view** — Chronological event table with sortable columns
 - **Grouped view** — Tree hierarchy: Thread > Activity/Fragment > methods
+
+![TraceFlow Grouped View](screenshots/grouped-view.png)
 - **Regex filters** — Filter by class (`.*Fragment$`) or method (`on(Create|Resume)`)
 - **Instant filtering** — Results update on every keystroke
 - **Source navigation** — Double-click any event to jump to the source line
