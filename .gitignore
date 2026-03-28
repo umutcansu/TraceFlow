@@ -10,3 +10,5 @@
 /runtime/build
 local.properties
 .kotlin/
+.intellijPlatform/
+**/idea-sandbox/
