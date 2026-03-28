@@ -1,12 +1,23 @@
 <idea-plugin>
   <id>io.github.umutcansu.TraceFlow</id>
-  <name>Trace Flow</name>
+  <name>TraceFlow</name>
   <vendor email="umutcansu@gmail.com" url="https://umutcansu.github.io/">Umut Cansu</vendor>
   <description>
     Monitors ASM Trace system logcat output in real time.
     Filters method entry, exit, catch, and branch events,
     and navigates to the relevant line in the source file.
   </description>
+
+  <change-notes><![CDATA[
+    <h3>1.0.0</h3>
+    <ul>
+      <li>Initial release</li>
+      <li>Real-time logcat trace monitoring</li>
+      <li>Method entry/exit/catch/branch event filtering</li>
+      <li>Source code navigation from trace events</li>
+      <li>Session export and import (JSON)</li>
+    </ul>
+  ]]></change-notes>
 
   <depends>com.intellij.modules.platform</depends>
   <depends>org.jetbrains.android</depends>

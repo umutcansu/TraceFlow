@@ -1,7 +1,7 @@
 plugins {
   id("java")
   id("org.jetbrains.kotlin.jvm") version "2.1.0"
-  id("org.jetbrains.intellij.platform") version "2.7.1"
+  id("org.jetbrains.intellij.platform") version "2.11.0"
 }
 
 group = "io.github.umutcansu.TraceFlow"
@@ -34,8 +34,14 @@ intellijPlatform {
   }
 }
 
+java {
+  toolchain {
+    languageVersion.set(JavaLanguageVersion.of(21))
+  }
+}
+
 kotlin {
   compilerOptions {
-    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
   }
 }

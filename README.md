@@ -1,6 +1,13 @@
 # TraceFlow
 
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.umutcansu/traceflow-runtime)](https://central.sonatype.com/artifact/io.github.umutcansu/traceflow-runtime)
+[![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/io.github.umutcansu.traceflow)](https://plugins.gradle.org/plugin/io.github.umutcansu.traceflow)
+[![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/io.github.umutcansu.TraceFlow)](https://plugins.jetbrains.com/plugin/io.github.umutcansu.TraceFlow)
+
 Zero-code ASM bytecode tracing for Android apps. Automatically instruments all methods with entry/exit/catch/branch logging — no manual log statements needed.
+
+<!-- TODO: Ana ekran görüntüsü ekle -->
+<!-- ![TraceFlow Studio Plugin](screenshots/studio-plugin-overview.png) -->
 
 ## Features
 
@@ -13,16 +20,44 @@ Zero-code ASM bytecode tracing for Android apps. Automatically instruments all m
 - **Android Studio plugin** — Real-time trace monitoring with filtering, grouping, and source navigation
 - **Runtime toggle** — `TraceLog.enabled = false` disables all tracing without recompilation
 
-## Setup
+## Installation
 
-### 1. Add the Gradle Plugin
+### 1. Add the Runtime Library
+
+```kotlin
+// build.gradle.kts (app module)
+dependencies {
+  implementation("io.github.umutcansu:traceflow-runtime:1.0.0")
+}
+```
+
+### 2. Apply the Gradle Plugin
 
 ```kotlin
 // build.gradle.kts (app module)
 plugins {
   id("io.github.umutcansu.traceflow") version "1.0.0"
 }
+```
 
+### 3. Install the Android Studio Plugin
+
+**Option A — JetBrains Marketplace (recommended):**
+
+1. Android Studio > **Settings** > **Plugins** > **Marketplace**
+2. Search **"TraceFlow"**
+3. Click **Install** and restart
+
+**Option B — Manual install:**
+
+1. Download the latest `.zip` from [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/io.github.umutcansu.TraceFlow)
+2. Android Studio > **Settings** > **Plugins** > **Gear icon** > **Install Plugin from Disk**
+3. Select the downloaded `.zip` file and restart
+
+## Configuration
+
+```kotlin
+// build.gradle.kts (app module)
 traceflow {
   enabled = true
 
@@ -50,18 +85,40 @@ traceflow {
 }
 ```
 
-### 2. Install the Android Studio Plugin
+### DSL Reference
 
-Download **TraceFlow** from JetBrains Marketplace, or install manually:
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `true` | Enable/disable bytecode instrumentation |
+| `entry.logParams` | `false` | Log method parameters on entry |
+| `entry.maskParams` | `[]` | Parameter names to mask with `***` |
+| `exit.logReturnValue` | `false` | Log return values on exit |
+| `exit.logDuration` | `false` | Log method execution time |
+| `statements.logTryCatch` | `false` | Log catch block entries |
+| `statements.logBranches` | `false` | Log if/else branch evaluations |
+| `filter.excludePackages` | `[]` | Package prefixes to exclude from instrumentation |
 
-**Settings → Plugins → Install Plugin from Disk** → select the `.zip` file.
+## Usage
 
-### 3. Use the Plugin
-
-1. Open the **Trace Flow** tool window (bottom panel)
+1. Open the **Trace Flow** tool window (bottom panel in Android Studio)
 2. Select your device from the dropdown
 3. Click **Start**
 4. Run your app — trace events appear in real time
+
+<!-- TODO: Kullanım ekran görüntüsü ekle -->
+<!-- ![TraceFlow Usage](screenshots/studio-plugin-monitoring.png) -->
+
+## Studio Plugin Features
+
+<!-- TODO: Her feature için ekran görüntüsü ekle -->
+
+- **Flat view** — Chronological event table with sortable columns
+- **Grouped view** — Tree hierarchy: Thread > Activity/Fragment > methods
+- **Regex filters** — Filter by class (`.*Fragment$`) or method (`on(Create|Resume)`)
+- **Instant filtering** — Results update on every keystroke
+- **Source navigation** — Double-click any event to jump to the source line
+- **Session export/import** — Save traces as JSON, load previous sessions
+- **Color-coded events** — ENTER (green), EXIT (blue), CATCH (red), BRANCH (amber)
 
 ## Log Output
 
@@ -89,29 +146,22 @@ D/TraceFlow JSON: {"type":"ENTER","class":"LoginViewModel","method":"reduce",...
 Exclude specific methods or entire classes:
 
 ```kotlin
-// Class-level — all methods excluded
 @NotTrace
 class GeneratedHiltModule { ... }
 
-// Method-level — only this method excluded
 class LoginViewModel {
   @NotTrace
   private fun validateEmail(value: String): Boolean { ... }
 }
 ```
 
-## DSL Reference
+## Runtime Toggle
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `enabled` | `true` | Enable/disable bytecode instrumentation |
-| `entry.logParams` | `false` | Log method parameters on entry |
-| `entry.maskParams` | `[]` | Parameter names to mask with `***` |
-| `exit.logReturnValue` | `false` | Log return values on exit |
-| `exit.logDuration` | `false` | Log method execution time |
-| `statements.logTryCatch` | `false` | Log catch block entries |
-| `statements.logBranches` | `false` | Log if/else branch evaluations |
-| `filter.excludePackages` | `[]` | Package prefixes to exclude from instrumentation |
+Disable tracing at runtime without recompilation:
+
+```kotlin
+TraceLog.enabled = false  // disables all trace output
+```
 
 ## Built-in Exclusions
 
@@ -120,15 +170,6 @@ The following are automatically excluded from instrumentation:
 - Dagger/Hilt generated classes (`Dagger*`, `Hilt_*`, `*_Factory`, `*_MembersInjector`)
 - Data binding classes
 - The TraceFlow runtime itself
-
-## Studio Plugin Features
-
-- **Flat view** — Chronological event table with sortable columns
-- **Grouped view** — Tree hierarchy: Thread → Activity/Fragment → methods
-- **Regex filters** — Filter by class (`.*Fragment$`) or method (`on(Create|Resume)`)
-- **Instant filtering** — Results update on every keystroke
-- **Source navigation** — Double-click any event to jump to the source line
-- **Session export/import** — Save traces as JSON, load previous sessions
 
 ## Architecture
 
