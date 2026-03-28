@@ -1,0 +1,22 @@
+<ivy-module version="2.0">
+  <info organisation="bundledPlugin" module="org.intellij.groovy" revision="AI-252.25557.131.2521.14270146"/>
+  <configurations>
+    <conf name="default" visibility="public"/>
+  </configurations>
+  <publications>
+    <artifact name="Groovy" ext="jar" conf="default" url="plugins/Groovy/lib"/>
+    <artifact name="groovy-jps" ext="jar" conf="default" url="plugins/Groovy/lib"/>
+    <artifact name="groovy-rt" ext="jar" conf="default" url="plugins/Groovy/lib"/>
+    <artifact name="groovy-spock-rt" ext="jar" conf="default" url="plugins/Groovy/lib"/>
+    <artifact name="groovy-constants-rt" ext="jar" conf="default" url="plugins/Groovy/lib"/>
+    <artifact name="groovy-rt-class-loader" ext="jar" conf="default" url="plugins/Groovy/lib"/>
+  </publications>
+  <dependencies>
+    <dependency org="bundledModule" name="intellij.spellchecker" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.java.unscramble" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.properties.backend" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.properties.backend.psi" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.intellij.properties" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.intellij.java" rev="AI-252.25557.131.2521.14270146"/>
+  </dependencies>
+</ivy-module>

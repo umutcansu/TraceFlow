@@ -1,0 +1,33 @@
+<idea-plugin>
+  <id>io.github.umutcansu.TraceFlow</id>
+  <name>Trace Flow</name>
+  <vendor email="umutcansu@gmail.com" url="https://umutcansu.github.io/">Umut Cansu</vendor>
+  <description>
+    Monitors ASM Trace system logcat output in real time.
+    Filters method entry, exit, catch, and branch events,
+    and navigates to the relevant line in the source file.
+  </description>
+
+  <depends>com.intellij.modules.platform</depends>
+  <depends>org.jetbrains.android</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <toolWindow
+      id="Trace Flow"
+      anchor="bottom"
+      secondary="false"
+      icon="/icons/traceflow.svg"
+      factoryClass="io.github.umutcansu.traceflow.studio.ui.TraceFlowWindowFactory"/>
+  </extensions>
+
+  <actions>
+    <action id="TraceFlow.ClearSession"
+            class="io.github.umutcansu.traceflow.studio.ui.ClearSessionAction"
+            text="Clear Session"
+            description="Delete all trace events"/>
+    <action id="TraceFlow.SaveSession"
+            class="io.github.umutcansu.traceflow.studio.ui.SaveSessionAction"
+            text="Save Session"
+            description="Export events to a JSON file"/>
+  </actions>
+</idea-plugin>

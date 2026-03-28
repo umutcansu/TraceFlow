@@ -1,0 +1,186 @@
+<ivy-module version="2.0">
+  <info organisation="bundledPlugin" module="org.jetbrains.android" revision="AI-252.25557.131.2521.14270146"/>
+  <configurations>
+    <conf name="default" visibility="public"/>
+  </configurations>
+  <publications>
+    <artifact name="asm-analysis-9.6" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="javapoet-1.13.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="aapt2-proto-8.1.0-10154469" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android-screenshot-testing" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="shark-2.14" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-api-services-drive-v3-rev20241027-2.0.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="ffmpeg-6.0-1.5.9-macosx-arm64" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="sqlite-jdbc-3.34.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="org.eclipse.elk.core-0.3.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="ffmpeg-platform-6.0-1.5.9" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libjava_version" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="sdk-common" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="smali-baksmali-3.0.9" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="shark-graph-2.14" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="javax.servlet-api-3.0.1" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libstudio.android-test-plugin-host-device-info-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android-common" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="jetifier-core-1.0.0-beta10" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="studio-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="shared" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libplay_vitals_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="game-tools-protos" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="utp" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android-kotlin" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libadblib-tools-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libstudio.android-test-plugin-result-listener-gradle-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android-project-system-gradle-models" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="sdklib-sdk-schema" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="workmanager_inspector_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="manifest-merger" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-oauth-client-1.35.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="inspectors-common" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="asm-commons-9.6" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="layout_inspector_view_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="adt-ui" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-http-client-1.42.3" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="asm-9.6" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-analytics-library" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="ui-animation-tooling-internal" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="opencensus-api-0.31.1" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android-profilers" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android-gradle" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="layout_inspector_compose_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="deploy_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="protobuf-kotlin-3.24.4" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libam-instrumentation-data-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="asm-tree-9.6" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android.so" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libandroid-core-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-api-client-2.2.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="juniversalchardet-1.0.3" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="compilerCommon.antlr_runtime.shaded_jar" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="tensorflow-lite-metadata-0.1.0-rc2" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="ffmpeg-6.0-1.5.9" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libagp-version" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="jetty-util-6.1.26" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android-base-common" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="HdrHistogram-2.1.12" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libstudio.proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="javacpp-1.5.9-macosx-arm64" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="smali-util-3.0.9" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="auto-common-0.10" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="compilerCommon.antlr.shaded_jar" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="emulator_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="sdk-tools" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="memory-usage" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="asm-util-9.6" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="org.eclipse.emf.common-2.12.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="opencensus-contrib-http-util-0.31.1" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="wizard-template" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="javacpp-platform-1.5.9" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="logcat-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="database_inspector_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="instantapps-api-1.8" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-http-client-gson-1.42.3" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="jetty-6.1.26" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="transport_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="repository-sdk-schema" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="layoutlib-loader" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="game-tools" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="explainer" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="javacpp-1.5.9" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="org.eclipse.elk.graph-0.3.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="smali-dexlib2-3.0.9" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-auth-library-credentials-1.24.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="build-common" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libjourneys-java-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="data-binding" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-oauth-client-java6-1.35.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-auth-library-oauth2-http-1.24.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="layout_inspector_snapshot_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="org.eclipse.elk.alg.layered-0.3.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="shark-android-2.14" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="r8" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="lint-ide" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="flatbuffers-java-1.12.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="liblint-checks-proto.lib" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="pixelprobe" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libcommon_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="backgroundtask_inspector_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="studio-grpc" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libjava_sites" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="network_inspector_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="jsr305-2.0.1" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="kotlin_multiplatform_android_models_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="sdklib" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="build-analysis-results-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="core-3.5.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="shark-log-2.14" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="dec-0.1.2" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="commons-lang-2.6" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="org.eclipse.emf.ecore-2.12.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="repository" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="kxml2-2.3.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="shark-hprof-2.14" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="android-rt" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="tracing-perfetto-handshake-1.0.0-beta02" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="layoutlib-api" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="google-api-services-oauth2-v2-rev20200213-2.0.0" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="utp-core-proto-jarjar" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="perfetto-protos" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="libadb-server-proto" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="javax.inject-1" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="traceprocessor_protos" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="artwork" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="generator" ext="jar" conf="default" url="plugins/android/lib"/>
+    <artifact name="layout_inspector_skia_java_proto" ext="jar" conf="default" url="plugins/android/lib"/>
+  </publications>
+  <dependencies>
+    <dependency org="bundledPlugin" name="JUnit" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.intellij.properties" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="intellij.webp" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.intellij.gradle" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.jetbrains.plugins.gradle" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.groovy" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.android.tools.idea.smali" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.jetbrains.kotlin" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.toml.lang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.intellij.gradle" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.jetbrains.plugins.gradle" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.jetbrains.kotlin" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.intellij.gradle" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.jetbrains.plugins.gradle" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.android.tools.gradle.dcl" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="org.intellij.intelliLang" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.lvcs.impl" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.vcs.impl" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.vcs.dvcs.impl" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.vcs.log.impl" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.libraries.grpc" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.libraries.grpc.netty.shaded" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.properties.backend.psi" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.settingsSync.core" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.spellchecker" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.spellchecker.xml" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.jewel.foundation" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.jewel.ideLafBridge" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.jewel.markdown.core" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.jewel.markdown.ideLafBridgeStyling" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.jewel.ui" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.libraries.skiko" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.libraries.compose.foundation.desktop" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.intellij.platform.images" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.intellij.java" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledPlugin" name="com.intellij.modules.json" rev="AI-252.25557.131.2521.14270146"/>
+  </dependencies>
+</ivy-module>

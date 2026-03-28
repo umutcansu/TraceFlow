@@ -1,0 +1,14 @@
+<ivy-module version="2.0">
+  <info organisation="bundledModule" module="intellij.platform.jewel.markdown.extensions.gfmTables" revision="AI-252.25557.131.2521.14270146"/>
+  <configurations>
+    <conf name="default" visibility="public"/>
+  </configurations>
+  <publications>
+    <artifact name="intellij.platform.jewel.markdown.extensions.gfmTables" ext="jar" conf="default" url="lib/modules"/>
+  </publications>
+  <dependencies>
+    <dependency org="bundledModule" name="intellij.platform.jewel.markdown.core" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.jewel.ui" rev="AI-252.25557.131.2521.14270146"/>
+    <dependency org="bundledModule" name="intellij.platform.jewel.foundation" rev="AI-252.25557.131.2521.14270146"/>
+  </dependencies>
+</ivy-module>

@@ -1,0 +1,13 @@
+<ivy-module version="2.0">
+  <info organisation="bundledPlugin" module="com.intellij.gradle" revision="AI-252.25557.131.2521.14270146"/>
+  <configurations>
+    <conf name="default" visibility="public"/>
+  </configurations>
+  <publications>
+    <artifact name="gradle-tooling-extension-impl" ext="jar" conf="default" url="plugins/gradle/lib"/>
+    <artifact name="gradle-tooling-extension-api" ext="jar" conf="default" url="plugins/gradle/lib"/>
+    <artifact name="gradle-api-9.0-milestone-1" ext="jar" conf="default" url="plugins/gradle/lib"/>
+    <artifact name="gradle" ext="jar" conf="default" url="plugins/gradle/lib"/>
+  </publications>
+  <dependencies/>
+</ivy-module>
