@@ -346,7 +346,17 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   }
 
   private fun saveSession() {
-    val descriptor = FileSaverDescriptor("Save Session", "Save as JSON file")
+    val descriptor = try {
+      // 2025.1+ has (String, String) constructor
+      FileSaverDescriptor::class.java
+        .getConstructor(String::class.java, String::class.java)
+        .newInstance("Save Session", "Save as JSON file")
+    } catch (_: NoSuchMethodException) {
+      // 2024.x has (String, String, String[]) varargs constructor
+      FileSaverDescriptor::class.java
+        .getConstructor(String::class.java, String::class.java, Array<String>::class.java)
+        .newInstance("Save Session", "Save as JSON file", arrayOf("json"))
+    }
     val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
     val result = dialog.save(null as com.intellij.openapi.vfs.VirtualFile?, "trace_session.json") ?: return
     val file = result.file
