@@ -346,7 +346,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   }
 
   private fun saveSession() {
-    val descriptor = FileSaverDescriptor("Save Session", "Save as JSON file", "json")
+    val descriptor = FileSaverDescriptor("Save Session", "Save as JSON file")
     val dialog = FileChooserFactory.getInstance().createSaveFileDialog(descriptor, project)
     val result = dialog.save(null as com.intellij.openapi.vfs.VirtualFile?, "trace_session.json") ?: return
     val file = result.file
