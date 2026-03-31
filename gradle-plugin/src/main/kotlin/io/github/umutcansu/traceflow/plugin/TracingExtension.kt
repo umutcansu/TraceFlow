@@ -3,6 +3,7 @@ package io.github.umutcansu.traceflow.plugin
 import org.gradle.api.Action
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
 import org.gradle.api.provider.Property
 import javax.inject.Inject
 
@@ -15,11 +16,13 @@ abstract class TracingExtension @Inject constructor(objects: ObjectFactory) {
   val exit: ExitConfig = objects.newInstance(ExitConfig::class.java)
   val statements: StatementsConfig = objects.newInstance(StatementsConfig::class.java)
   val filter: FilterConfig = objects.newInstance(FilterConfig::class.java)
+  val remote: RemoteConfig = objects.newInstance(RemoteConfig::class.java)
 
   fun entry(action: Action<EntryConfig>) = action.execute(entry)
   fun exit(action: Action<ExitConfig>) = action.execute(exit)
   fun statements(action: Action<StatementsConfig>) = action.execute(statements)
   fun filter(action: Action<FilterConfig>) = action.execute(filter)
+  fun remote(action: Action<RemoteConfig>) = action.execute(remote)
 
   abstract class EntryConfig @Inject constructor(objects: ObjectFactory) {
     /** Log method parameters */
@@ -61,5 +64,20 @@ abstract class TracingExtension @Inject constructor(objects: ObjectFactory) {
      */
     val excludePackages: ListProperty<String> = objects.listProperty(String::class.java)
       .convention(emptyList())
+  }
+
+  abstract class RemoteConfig @Inject constructor(objects: ObjectFactory) {
+    /** Enable remote log streaming */
+    val enabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+
+    /** HTTP endpoint URL (e.g. "https://api.example.com/traces") */
+    val endpoint: Property<String> = objects.property(String::class.java).convention("")
+
+    /** Custom HTTP headers (e.g. Authorization) */
+    val headers: MapProperty<String, String> = objects.mapProperty(String::class.java, String::class.java)
+      .convention(emptyMap())
+
+    /** Number of events to batch before sending */
+    val batchSize: Property<Int> = objects.property(Int::class.java).convention(10)
   }
 }

@@ -2,6 +2,7 @@ package io.github.umutcansu.traceflow.studio.ui
 
 import io.github.umutcansu.traceflow.studio.editor.TraceHighlighter
 import io.github.umutcansu.traceflow.studio.logcat.LogcatMonitor
+import io.github.umutcansu.traceflow.studio.remote.RemoteLogPoller
 import io.github.umutcansu.traceflow.studio.model.ExecutionSession
 import io.github.umutcansu.traceflow.studio.model.TraceEvent
 import io.github.umutcansu.traceflow.studio.model.TraceEventType
@@ -51,17 +52,28 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private val groupedModel = GroupedTableModel()
   private val groupedTable = JBTable(groupedModel)
 
+  // Remote poller
+  private var remotePoller: RemoteLogPoller? = null
+
   // Device selector
   private val deviceCombo = JComboBox<String>()
+
+  // Remote UI
+  private val endpointField = JTextField(25).apply { toolTipText = "Remote endpoint URL (e.g. https://api.example.com/traces)" }
+  private val headerField = JTextField(15).apply { toolTipText = "Authorization header value (optional)" }
 
   // State
   private val statusLabel = JLabel("Not connected")
   private var isMonitoring = false
   private var isGroupedMode = false
+  private var isRemoteMode = false
   private lateinit var startBtn: JButton
   private lateinit var stopBtn: JButton
   private lateinit var toggleBtn: JButton
+  private lateinit var modeBtn: JButton
   private lateinit var scrollPane: JBScrollPane
+  private lateinit var logcatToolbar: JPanel
+  private lateinit var remoteToolbar: JPanel
 
   init {
     setupTable()
@@ -151,15 +163,12 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   // -- Toolbar ----------------------------------------------------------------
 
   private fun setupToolbar(): JPanel {
-    val toolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    val wrapper = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
 
-    startBtn = JButton("Start").apply {
-      isEnabled = false
-      addActionListener { startMonitoring() }
-    }
-    stopBtn = JButton("Stop").apply {
-      isEnabled = false
-      addActionListener { stopMonitoring() }
+    // -- Mode switch row
+    val modeRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    modeBtn = JButton("Switch to Remote").apply {
+      addActionListener { toggleMode() }
     }
     val clearBtn = JButton("Clear").apply {
       addActionListener { clearSession() }
@@ -173,26 +182,95 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     toggleBtn = JButton("Grouped").apply {
       addActionListener { toggleViewMode() }
     }
+    modeRow.add(modeBtn)
+    modeRow.add(JSeparator(SwingConstants.VERTICAL))
+    modeRow.add(clearBtn)
+    modeRow.add(saveBtn)
+    modeRow.add(loadBtn)
+    modeRow.add(JSeparator(SwingConstants.VERTICAL))
+    modeRow.add(toggleBtn)
+    modeRow.add(JSeparator(SwingConstants.VERTICAL))
+    modeRow.add(statusLabel)
+    wrapper.add(modeRow)
 
+    // -- Logcat toolbar
+    logcatToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    startBtn = JButton("Start").apply {
+      isEnabled = false
+      addActionListener { startMonitoring() }
+    }
+    stopBtn = JButton("Stop").apply {
+      isEnabled = false
+      addActionListener { stopMonitoring() }
+    }
     val refreshDevicesBtn = JButton("Refresh").apply {
       addActionListener { refreshDevices() }
     }
+    logcatToolbar.add(JLabel("Device:"))
+    logcatToolbar.add(deviceCombo)
+    logcatToolbar.add(refreshDevicesBtn)
+    logcatToolbar.add(JSeparator(SwingConstants.VERTICAL))
+    logcatToolbar.add(startBtn)
+    logcatToolbar.add(stopBtn)
+    wrapper.add(logcatToolbar)
 
-    toolbar.add(JLabel("Device:"))
-    toolbar.add(deviceCombo)
-    toolbar.add(refreshDevicesBtn)
-    toolbar.add(JSeparator(SwingConstants.VERTICAL))
-    toolbar.add(startBtn)
-    toolbar.add(stopBtn)
-    toolbar.add(clearBtn)
-    toolbar.add(saveBtn)
-    toolbar.add(loadBtn)
-    toolbar.add(JSeparator(SwingConstants.VERTICAL))
-    toolbar.add(toggleBtn)
-    toolbar.add(JSeparator(SwingConstants.VERTICAL))
-    toolbar.add(statusLabel)
+    // -- Remote toolbar
+    remoteToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    val connectBtn = JButton("Connect").apply {
+      addActionListener { startRemote() }
+    }
+    val disconnectBtn = JButton("Disconnect").apply {
+      addActionListener { stopRemote() }
+    }
+    remoteToolbar.add(JLabel("Endpoint:"))
+    remoteToolbar.add(endpointField)
+    remoteToolbar.add(JLabel("Auth:"))
+    remoteToolbar.add(headerField)
+    remoteToolbar.add(connectBtn)
+    remoteToolbar.add(disconnectBtn)
+    remoteToolbar.isVisible = false
+    wrapper.add(remoteToolbar)
 
-    return toolbar
+    return wrapper
+  }
+
+  private fun toggleMode() {
+    if (isMonitoring) stopMonitoring()
+    stopRemote()
+    isRemoteMode = !isRemoteMode
+    logcatToolbar.isVisible = !isRemoteMode
+    remoteToolbar.isVisible = isRemoteMode
+    modeBtn.text = if (isRemoteMode) "Switch to Logcat" else "Switch to Remote"
+    statusLabel.text = if (isRemoteMode) "Remote mode" else "Not connected"
+  }
+
+  private fun startRemote() {
+    val endpoint = endpointField.text.trim()
+    if (endpoint.isEmpty()) {
+      statusLabel.text = "Enter an endpoint URL"
+      return
+    }
+    val headers = mutableMapOf<String, String>()
+    val auth = headerField.text.trim()
+    if (auth.isNotEmpty()) {
+      headers["Authorization"] = auth
+    }
+    remotePoller?.stop()
+    remotePoller = RemoteLogPoller(
+      endpoint = endpoint,
+      headers = headers,
+      onEvent = { event -> addEvent(event) },
+      onError = { msg -> ApplicationManager.getApplication().invokeLater { statusLabel.text = msg } },
+      onConnected = { ApplicationManager.getApplication().invokeLater { statusLabel.text = "Remote connected" } },
+    )
+    remotePoller?.start()
+    statusLabel.text = "Connecting..."
+  }
+
+  private fun stopRemote() {
+    remotePoller?.stop()
+    remotePoller = null
+    if (isRemoteMode) statusLabel.text = "Remote disconnected"
   }
 
   // -- Filter bar -------------------------------------------------------------

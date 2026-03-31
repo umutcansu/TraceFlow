@@ -1,6 +1,7 @@
 package io.github.umutcansu.traceflow
 
 import android.util.Log
+import io.github.umutcansu.traceflow.remote.RemoteSender
 import org.json.JSONObject
 
 /**
@@ -23,6 +24,43 @@ object TraceLog {
   // Can be disabled at runtime (in prod release builds the plugin doesn't inject anyway)
   @JvmField
   var enabled: Boolean = true
+
+  @Volatile
+  private var remoteSender: RemoteSender? = null
+
+  /**
+   * Start sending trace events to a remote HTTP endpoint.
+   *
+   * Events are batched and sent as JSON arrays via POST.
+   * Logcat output continues regardless.
+   *
+   * ```kotlin
+   * TraceLog.startRemote("https://api.example.com/traces")
+   * // or with auth:
+   * TraceLog.startRemote(
+   *   endpoint = "https://api.example.com/traces",
+   *   headers = mapOf("Authorization" to "Bearer token123")
+   * )
+   * ```
+   */
+  @JvmStatic
+  @JvmOverloads
+  fun startRemote(
+    endpoint: String,
+    headers: Map<String, String> = emptyMap(),
+    batchSize: Int = 10,
+    flushIntervalMs: Long = 3000L,
+  ) {
+    remoteSender?.stop()
+    remoteSender = RemoteSender(endpoint, headers, batchSize, flushIntervalMs)
+  }
+
+  /** Stop remote sending. Pending events are flushed before shutdown. */
+  @JvmStatic
+  fun stopRemote() {
+    remoteSender?.stop()
+    remoteSender = null
+  }
 
   // -- Entry -----------------------------------------------------------------
 
@@ -144,7 +182,9 @@ object TraceLog {
         }
         extra.forEach { (k, v) -> put(k, v) }
       }
-      Log.d(TAG_JSON, json.toString())
+      val jsonStr = json.toString()
+      Log.d(TAG_JSON, jsonStr)
+      remoteSender?.enqueue(jsonStr)
     } catch (_: Exception) {
       // JSON creation errors must not interrupt the trace flow
     }
