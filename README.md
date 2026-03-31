@@ -26,7 +26,7 @@ Zero-code ASM bytecode tracing for Android apps. Automatically instruments all m
 ```kotlin
 // build.gradle.kts (app module)
 dependencies {
-  implementation("io.github.umutcansu:traceflow-runtime:1.0.0")
+  implementation("io.github.umutcansu:traceflow-runtime:1.0.1")
 }
 ```
 
@@ -35,7 +35,7 @@ dependencies {
 ```kotlin
 // build.gradle.kts (app module)
 plugins {
-  id("io.github.umutcansu.traceflow") version "1.0.0"
+  id("io.github.umutcansu.traceflow") version "1.0.1"
 }
 ```
 
