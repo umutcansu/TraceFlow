@@ -17,6 +17,7 @@ Zero-code ASM bytecode tracing for Android apps. Automatically instruments all m
 - **Sensitive data masking** — Automatically masks parameters named `password`, `token`, `pin`, `secret` etc.
 - **`@NotTrace` annotation** — Opt-out specific methods or entire classes
 - **Android Studio plugin** — Real-time trace monitoring with filtering, grouping, and source navigation
+- **Remote log streaming** — Send traces to any HTTP endpoint, monitor from Android Studio without USB
 - **Runtime toggle** — `TraceLog.enabled = false` disables all tracing without recompilation
 
 ## Installation
@@ -49,7 +50,7 @@ plugins {
 
 **Option B — Manual install:**
 
-1. Download the latest `.zip` from [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/io.github.umutcansu.TraceFlow)
+1. Download the latest `.zip` from [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/30959-traceflow)
 2. Android Studio > **Settings** > **Plugins** > **Gear icon** > **Install Plugin from Disk**
 3. Select the downloaded `.zip` file and restart
 
@@ -96,13 +97,42 @@ traceflow {
 | `statements.logTryCatch` | `false` | Log catch block entries |
 | `statements.logBranches` | `false` | Log if/else branch evaluations |
 | `filter.excludePackages` | `[]` | Package prefixes to exclude from instrumentation |
+| `remote.enabled` | `false` | Enable remote log streaming |
+| `remote.endpoint` | `""` | HTTP endpoint URL for trace events |
+| `remote.headers` | `{}` | Custom HTTP headers (e.g. Authorization) |
+| `remote.batchSize` | `10` | Number of events to batch before sending |
 
 ## Usage
+
+### Logcat Mode (USB/ADB)
 
 1. Open the **Trace Flow** tool window (bottom panel in Android Studio)
 2. Select your device from the dropdown
 3. Click **Start**
 4. Run your app — trace events appear in real time
+
+### Remote Mode (no USB required)
+
+1. Set up a server with `POST /traces` and `GET /traces?since={ts}` endpoints
+2. In your app, start remote streaming:
+```kotlin
+TraceLog.startRemote(
+  endpoint = "https://your-server.com/traces",
+  headers = mapOf("Authorization" to "Bearer your-token")
+)
+```
+Or configure via Gradle DSL:
+```kotlin
+traceflow {
+  remote {
+    enabled = true
+    endpoint = "https://your-server.com/traces"
+    headers = mapOf("Authorization" to "Bearer your-token")
+  }
+}
+```
+3. In Android Studio, click **Switch to Remote**, enter the same endpoint, and click **Connect**
+4. Trace events stream in real time — no USB cable needed
 
 ![TraceFlow Source Navigation](screenshots/source-navigation.png)
 
@@ -152,6 +182,35 @@ class LoginViewModel {
   private fun validateEmail(value: String): Boolean { ... }
 }
 ```
+
+## Remote Streaming API
+
+Send trace events to any HTTP endpoint at runtime:
+
+```kotlin
+// Start remote streaming
+TraceLog.startRemote("https://your-server.com/traces")
+
+// With authentication
+TraceLog.startRemote(
+  endpoint = "https://your-server.com/traces",
+  headers = mapOf("Authorization" to "Bearer token123"),
+  batchSize = 10,           // events per batch
+  flushIntervalMs = 3000L,  // max wait before flush
+)
+
+// Stop remote streaming
+TraceLog.stopRemote()
+```
+
+Your server must implement two endpoints:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/traces` | `POST` | Receives JSON array of trace events |
+| `/traces?since={ts}` | `GET` | Returns events after given timestamp |
+
+Logcat output continues regardless of remote streaming.
 
 ## Runtime Toggle
 
