@@ -118,6 +118,7 @@ traceflow {
 ```kotlin
 TraceLog.startRemote(
   endpoint = "https://your-server.com/traces",
+  tag = "pixel-7-debug",  // identify this device in the plugin
   headers = mapOf("Authorization" to "Bearer your-token")
 )
 ```
@@ -142,8 +143,10 @@ traceflow {
 - **Grouped view** — Tree hierarchy: Thread > Activity/Fragment > methods
 
 ![TraceFlow Grouped View](screenshots/grouped-view.png)
+- **Device filtering** — Filter by device when multiple devices stream logs (remote mode)
 - **Regex filters** — Filter by class (`.*Fragment$`) or method (`on(Create|Resume)`)
 - **Instant filtering** — Results update on every keystroke
+- **Smart auto-scroll** — Follows new events at bottom, stays put when scrolled up
 - **Source navigation** — Double-click any event to jump to the source line
 - **Session export/import** — Save traces as JSON, load previous sessions
 - **Color-coded events** — ENTER (green), EXIT (blue), CATCH (red), BRANCH (amber)
@@ -191,17 +194,20 @@ Send trace events to any HTTP endpoint at runtime:
 // Start remote streaming
 TraceLog.startRemote("https://your-server.com/traces")
 
-// With authentication
+// With device tag and authentication
 TraceLog.startRemote(
   endpoint = "https://your-server.com/traces",
+  tag = "qa-device-1",       // identify this device in the plugin
   headers = mapOf("Authorization" to "Bearer token123"),
-  batchSize = 10,           // events per batch
-  flushIntervalMs = 3000L,  // max wait before flush
+  batchSize = 10,             // events per batch
+  flushIntervalMs = 3000L,    // max wait before flush
 )
 
 // Stop remote streaming
 TraceLog.stopRemote()
 ```
+
+Each remote event includes `deviceModel` (auto-detected) and `tag` (user-defined). The Android Studio plugin shows a **Device** dropdown to filter logs by device when multiple devices are streaming.
 
 Your server must implement two endpoints:
 
