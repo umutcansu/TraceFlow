@@ -8,7 +8,7 @@ import io.github.umutcansu.traceflow.studio.model.TraceEvent
 import io.github.umutcansu.traceflow.studio.model.TraceEventType
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -80,8 +80,7 @@ class RemoteLogPoller(
 
   private fun poll() {
     val separator = if (endpoint.contains('?')) '&' else '?'
-    val url = URL("${endpoint}${separator}since=$lastTimestamp")
-    val conn = url.openConnection() as HttpURLConnection
+    val conn = URI("${endpoint}${separator}since=$lastTimestamp").toURL().openConnection() as HttpURLConnection
     try {
       conn.requestMethod = "GET"
       conn.connectTimeout = 5000
