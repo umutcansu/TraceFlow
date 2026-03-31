@@ -22,6 +22,8 @@ data class TraceEvent(
   val timestampMs: Long,
   /** ENTER -> parameter map, EXIT -> result, CATCH -> exception info, BRANCH -> condition */
   val extra: Map<String, String> = emptyMap(),
+  val deviceModel: String = "",
+  val tag: String = "",
 ) {
   val timeFormatted: String
     get() = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
@@ -29,6 +31,13 @@ data class TraceEvent(
       .format(Instant.ofEpochMilli(timestampMs))
 
   val sourceRef: String get() = "$file:$line"
+
+  val deviceLabel: String get() = when {
+    tag.isNotEmpty() && deviceModel.isNotEmpty() -> "$deviceModel ($tag)"
+    tag.isNotEmpty() -> tag
+    deviceModel.isNotEmpty() -> deviceModel
+    else -> ""
+  }
 
   val detail: String
     get() = when (type) {

@@ -21,17 +21,24 @@ class ExecutionSession {
   }
 
   /** Returns a filtered list of events */
+  /** All unique device identifiers (model + tag) seen so far. */
+  fun devices(): List<String> {
+    return _events.map { it.deviceLabel }.filter { it.isNotEmpty() }.distinct()
+  }
+
   fun filtered(
     typeFilter: Set<TraceEventType> = TraceEventType.entries.toSet(),
     classFilter: String = "",
     methodFilter: String = "",
+    deviceFilter: String = "",
   ): List<TraceEvent> {
     val classRegex = classFilter.toSafeRegex()
     val methodRegex = methodFilter.toSafeRegex()
     return _events.filter { event ->
       event.type in typeFilter &&
         (classRegex == null || classRegex.containsMatchIn(event.className)) &&
-        (methodRegex == null || methodRegex.containsMatchIn(event.method))
+        (methodRegex == null || methodRegex.containsMatchIn(event.method)) &&
+        (deviceFilter.isEmpty() || event.deviceLabel == deviceFilter)
     }
   }
 

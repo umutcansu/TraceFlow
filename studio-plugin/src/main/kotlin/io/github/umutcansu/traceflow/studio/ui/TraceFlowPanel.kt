@@ -46,6 +46,11 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   // Filter fields
   private val classFilter  = JTextField(15).apply { toolTipText = "Regex filter (e.g. .*Fragment$, Login.*)" }
   private val methodFilter = JTextField(15).apply { toolTipText = "Regex filter (e.g. on(Create|Resume), reduce)" }
+  private val deviceComboFilter = JComboBox<String>().apply {
+    addItem("All Devices")
+    addActionListener { refreshTable() }
+    toolTipText = "Filter by device (model + tag)"
+  }
   private val typeFilters  = TraceEventType.entries.associateWith { JCheckBox(it.label, true) }
 
   // Grouped view model
@@ -278,6 +283,9 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private fun setupFilterBar(): JPanel {
     val filterBar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
 
+    filterBar.add(JLabel("Device:"))
+    filterBar.add(deviceComboFilter)
+    filterBar.add(JSeparator(SwingConstants.VERTICAL))
     filterBar.add(JLabel("Class:"))
     filterBar.add(classFilter)
     filterBar.add(JLabel("Method:"))
@@ -314,7 +322,17 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
 
   private fun addEvent(event: TraceEvent) {
     session.add(event)
-    ApplicationManager.getApplication().invokeLater { refreshTable() }
+    ApplicationManager.getApplication().invokeLater {
+      // Update device combo if new device seen
+      val label = event.deviceLabel
+      if (label.isNotEmpty()) {
+        val existing = (0 until deviceComboFilter.itemCount).map { deviceComboFilter.getItemAt(it) }
+        if (label !in existing) {
+          deviceComboFilter.addItem(label)
+        }
+      }
+      refreshTable()
+    }
   }
 
   private fun refreshTable() {
@@ -322,22 +340,26 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
       .filter { it.value.isSelected }
       .map { it.key }
       .toSet()
+    val selectedDevice = deviceComboFilter.selectedItem as? String ?: "All Devices"
     val filtered = session.filtered(
       typeFilter    = activeTypes,
       classFilter   = classFilter.text,
       methodFilter  = methodFilter.text,
+      deviceFilter  = if (selectedDevice == "All Devices") "" else selectedDevice,
     )
 
     if (isGroupedMode) {
+      val wasAtBottom = isScrolledToBottom(groupedTable)
       val roots = TraceTreeBuilder.build(filtered)
       val flatRows = TraceTreeBuilder.flatten(roots)
       groupedModel.update(flatRows)
-      if (groupedModel.rowCount > 0) {
+      if (wasAtBottom && groupedModel.rowCount > 0) {
         groupedTable.scrollRectToVisible(groupedTable.getCellRect(groupedModel.rowCount - 1, 0, true))
       }
     } else {
+      val wasAtBottom = isScrolledToBottom(table)
       tableModel.update(filtered)
-      if (tableModel.rowCount > 0) {
+      if (wasAtBottom && tableModel.rowCount > 0) {
         table.scrollRectToVisible(table.getCellRect(tableModel.rowCount - 1, 0, true))
       }
     }
@@ -392,6 +414,13 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     stopBtn.isEnabled = false
     statusLabel.text = "Stopped"
     monitor.stop()
+  }
+
+  private fun isScrolledToBottom(t: JTable): Boolean {
+    val viewport = scrollPane.viewport
+    val viewRect = viewport.viewRect
+    val viewHeight = t.preferredSize.height
+    return viewRect.y + viewRect.height >= viewHeight - 50
   }
 
   private fun clearSession() {

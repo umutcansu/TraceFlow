@@ -1,5 +1,6 @@
 package io.github.umutcansu.traceflow
 
+import android.os.Build
 import android.util.Log
 import io.github.umutcansu.traceflow.remote.RemoteSender
 import org.json.JSONObject
@@ -28,6 +29,14 @@ object TraceLog {
   @Volatile
   private var remoteSender: RemoteSender? = null
 
+  /** Device model (auto-detected) included in every remote JSON event. */
+  @Volatile
+  private var deviceModel: String = ""
+
+  /** User-defined tag for identifying this device/session in remote logs. */
+  @Volatile
+  private var deviceTag: String = ""
+
   /**
    * Start sending trace events to a remote HTTP endpoint.
    *
@@ -36,9 +45,10 @@ object TraceLog {
    *
    * ```kotlin
    * TraceLog.startRemote("https://api.example.com/traces")
-   * // or with auth:
+   * // with tag to identify the device:
    * TraceLog.startRemote(
    *   endpoint = "https://api.example.com/traces",
+   *   tag = "qa-team-1",
    *   headers = mapOf("Authorization" to "Bearer token123")
    * )
    * ```
@@ -47,11 +57,14 @@ object TraceLog {
   @JvmOverloads
   fun startRemote(
     endpoint: String,
+    tag: String = "",
     headers: Map<String, String> = emptyMap(),
     batchSize: Int = 10,
     flushIntervalMs: Long = 3000L,
   ) {
     remoteSender?.stop()
+    deviceModel = Build.MODEL
+    deviceTag = tag
     remoteSender = RemoteSender(endpoint, headers, batchSize, flushIntervalMs)
   }
 
@@ -175,6 +188,8 @@ object TraceLog {
         put("threadId", Thread.currentThread().id)
         put("threadName", Thread.currentThread().name)
         put("ts", System.currentTimeMillis())
+        if (deviceModel.isNotEmpty()) put("deviceModel", deviceModel)
+        if (deviceTag.isNotEmpty()) put("tag", deviceTag)
         if (params != null) {
           val pJson = JSONObject()
           params.forEach { (k, v) -> pJson.put(k, v) }
