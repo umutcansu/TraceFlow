@@ -6,7 +6,7 @@ import javax.swing.table.AbstractTableModel
 
 class EventTableModel : AbstractTableModel() {
 
-  private val columns = listOf("Time", "Type", "Class", "Method", "File:Line", "Detail")
+  private val columns = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Detail")
   private var rows: List<TraceEvent> = emptyList()
 
   fun update(events: List<TraceEvent>) {
@@ -23,12 +23,13 @@ class EventTableModel : AbstractTableModel() {
   override fun getValueAt(rowIndex: Int, columnIndex: Int): Any {
     val event = rows.getOrNull(rowIndex) ?: return ""
     return when (columnIndex) {
-      0 -> event.timeFormatted
-      1 -> event.type.label
-      2 -> event.className
-      3 -> event.method
-      4 -> event.sourceRef
-      5 -> event.detail
+      0 -> event.dateFormatted
+      1 -> event.timeFormatted
+      2 -> event.type.label
+      3 -> event.className
+      4 -> event.method
+      5 -> event.sourceRef
+      6 -> event.detail
       else -> ""
     }
   }

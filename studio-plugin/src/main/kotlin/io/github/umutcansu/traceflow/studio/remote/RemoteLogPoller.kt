@@ -4,22 +4,17 @@ import com.google.gson.Gson
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.intellij.openapi.Disposable
+import com.intellij.util.io.HttpRequests
 import io.github.umutcansu.traceflow.studio.model.TraceEvent
 import io.github.umutcansu.traceflow.studio.model.TraceEventType
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URI
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Polls a remote HTTP endpoint for trace events and delivers them
  * via the [onEvent] callback.
  *
- * Expected server contract:
- * ```
- * GET /traces?since={timestampMs}
- * Response: JSON array of trace event objects
- * ```
+ * Uses IntelliJ Platform's [HttpRequests] API which respects IDE proxy/network
+ * settings and avoids OS-level socket restrictions that block raw HttpURLConnection.
  */
 class RemoteLogPoller(
   private val endpoint: String,
@@ -44,7 +39,7 @@ class RemoteLogPoller(
 
   fun start() {
     if (running.getAndSet(true)) return
-    lastTimestamp = System.currentTimeMillis()
+    lastTimestamp = 0L
     eventCount = 0
 
     pollerThread = Thread({
@@ -54,7 +49,7 @@ class RemoteLogPoller(
           poll()
         } catch (e: Exception) {
           if (running.get()) {
-            onError("Poll error: ${e.message}")
+            onError("Poll error: [${e.javaClass.simpleName}] ${e.message}")
           }
         }
         try {
@@ -80,32 +75,28 @@ class RemoteLogPoller(
 
   private fun poll() {
     val separator = if (endpoint.contains('?')) '&' else '?'
-    val conn = URI("${endpoint}${separator}since=$lastTimestamp").toURL().openConnection() as HttpURLConnection
-    try {
-      conn.requestMethod = "GET"
-      conn.connectTimeout = 5000
-      conn.readTimeout = 5000
-      for ((key, value) in headers) {
-        conn.setRequestProperty(key, value)
-      }
+    val url = "${endpoint}${separator}since=$lastTimestamp"
 
-      val code = conn.responseCode
-      if (code !in 200..299) return
-
-      val body = InputStreamReader(conn.inputStream, Charsets.UTF_8).use { it.readText() }
-      val array = gson.fromJson(body, JsonArray::class.java) ?: return
-
-      for (element in array) {
-        val obj = element.asJsonObject ?: continue
-        val event = parseEvent(obj) ?: continue
-        if (event.timestampMs > lastTimestamp) {
-          lastTimestamp = event.timestampMs
+    val body = HttpRequests.request(url)
+      .connectTimeout(15000)
+      .readTimeout(15000)
+      .apply {
+        for ((key, value) in headers) {
+          tuner { conn -> conn.setRequestProperty(key, value) }
         }
-        eventCount++
-        onEvent(event)
       }
-    } finally {
-      conn.disconnect()
+      .readString()
+
+    val array = gson.fromJson(body, JsonArray::class.java) ?: return
+
+    for (element in array) {
+      val obj = element.asJsonObject ?: continue
+      val event = parseEvent(obj) ?: continue
+      if (event.timestampMs > lastTimestamp) {
+        lastTimestamp = event.timestampMs
+      }
+      eventCount++
+      onEvent(event)
     }
   }
 

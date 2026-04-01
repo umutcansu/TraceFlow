@@ -53,6 +53,14 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   }
   private val typeFilters  = TraceEventType.entries.associateWith { JCheckBox(it.label, true) }
 
+  // Date range filter
+  private val fromTimeField = JTextField(16).apply { toolTipText = "From (yyyy-MM-dd HH:mm:ss or HH:mm:ss)" }
+  private val toTimeField   = JTextField(16).apply { toolTipText = "To (yyyy-MM-dd HH:mm:ss or HH:mm:ss). Leave empty for no upper bound." }
+
+  // Column visibility
+  private val columnNames = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Detail")
+  private val columnVisible = columnNames.associateWith { JCheckBox(it, true) }
+
   // Grouped view model
   private val groupedModel = GroupedTableModel()
   private val groupedTable = JBTable(groupedModel)
@@ -68,6 +76,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private val headerField = JTextField(15).apply { toolTipText = "Authorization header value (optional)" }
 
   // State
+  private val statusIcon = JLabel("\u26AA")  // grey circle default
   private val statusLabel = JLabel("Not connected")
   private var isMonitoring = false
   private var isGroupedMode = false
@@ -75,7 +84,6 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private lateinit var startBtn: JButton
   private lateinit var stopBtn: JButton
   private lateinit var toggleBtn: JButton
-  private lateinit var modeBtn: JButton
   private lateinit var scrollPane: JBScrollPane
   private lateinit var logcatToolbar: JPanel
   private lateinit var remoteToolbar: JPanel
@@ -83,12 +91,12 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   init {
     setupTable()
     setupGroupedTable()
+    initFilterListeners()
 
     val topPanel = JPanel().apply {
       layout = BoxLayout(this, BoxLayout.Y_AXIS)
     }
     setupToolbar().also { topPanel.add(it) }
-    setupFilterBar().also { topPanel.add(it) }
     add(topPanel, BorderLayout.NORTH)
 
     scrollPane = JBScrollPane(table)
@@ -103,15 +111,16 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private fun setupTable() {
     table.autoResizeMode = JTable.AUTO_RESIZE_LAST_COLUMN
     table.autoCreateRowSorter = true
-    table.columnModel.getColumn(0).preferredWidth = 90   // Time
-    table.columnModel.getColumn(1).preferredWidth = 60   // Type
-    table.columnModel.getColumn(2).preferredWidth = 180  // Class
-    table.columnModel.getColumn(3).preferredWidth = 140  // Method
-    table.columnModel.getColumn(4).preferredWidth = 140  // File:Line
-    table.columnModel.getColumn(5).preferredWidth = 400  // Detail
+    table.columnModel.getColumn(0).preferredWidth = 80   // Date
+    table.columnModel.getColumn(1).preferredWidth = 90   // Time
+    table.columnModel.getColumn(2).preferredWidth = 60   // Type
+    table.columnModel.getColumn(3).preferredWidth = 180  // Class
+    table.columnModel.getColumn(4).preferredWidth = 140  // Method
+    table.columnModel.getColumn(5).preferredWidth = 140  // File:Line
+    table.columnModel.getColumn(6).preferredWidth = 400  // Detail
 
     // Color the Type column
-    table.columnModel.getColumn(1).cellRenderer = TypeColorRenderer()
+    table.columnModel.getColumn(2).cellRenderer = TypeColorRenderer()
 
     // Double-click to navigate
     table.addMouseListener(object : java.awt.event.MouseAdapter() {
@@ -170,35 +179,32 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private fun setupToolbar(): JPanel {
     val wrapper = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
 
-    // -- Mode switch row
-    val modeRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
-    modeBtn = JButton("Switch to Remote").apply {
-      addActionListener { toggleMode() }
-    }
-    val clearBtn = JButton("Clear").apply {
-      addActionListener { clearSession() }
-    }
-    val saveBtn = JButton("Save").apply {
-      addActionListener { saveSession() }
-    }
-    val loadBtn = JButton("Load").apply {
-      addActionListener { loadSession() }
-    }
-    toggleBtn = JButton("Grouped").apply {
-      addActionListener { toggleViewMode() }
-    }
-    modeRow.add(modeBtn)
-    modeRow.add(JSeparator(SwingConstants.VERTICAL))
-    modeRow.add(clearBtn)
-    modeRow.add(saveBtn)
-    modeRow.add(loadBtn)
-    modeRow.add(JSeparator(SwingConstants.VERTICAL))
-    modeRow.add(toggleBtn)
-    modeRow.add(JSeparator(SwingConstants.VERTICAL))
-    modeRow.add(statusLabel)
-    wrapper.add(modeRow)
+    // -- Actions row (always visible)
+    val actionsRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    val clearBtn = JButton("Clear").apply { addActionListener { clearSession() } }
+    val saveBtn = JButton("Save").apply { addActionListener { saveSession() } }
+    val loadBtn = JButton("Load").apply { addActionListener { loadSession() } }
+    toggleBtn = JButton("Grouped").apply { addActionListener { toggleViewMode() } }
+    val filtersBtn = JButton("Filters").apply { addActionListener { showFiltersPopup(this) } }
+    val columnsBtn = JButton("Columns").apply { addActionListener { showColumnsPopup(this) } }
+    actionsRow.add(clearBtn)
+    actionsRow.add(saveBtn)
+    actionsRow.add(loadBtn)
+    actionsRow.add(JSeparator(SwingConstants.VERTICAL))
+    actionsRow.add(toggleBtn)
+    actionsRow.add(filtersBtn)
+    actionsRow.add(columnsBtn)
+    actionsRow.add(JSeparator(SwingConstants.VERTICAL))
+    actionsRow.add(statusIcon)
+    actionsRow.add(statusLabel)
+    wrapper.add(actionsRow)
 
-    // -- Logcat toolbar
+    // -- Source tabs (Logcat / Remote)
+    val sourceTabs = JTabbedPane(JTabbedPane.TOP).apply {
+      tabLayoutPolicy = JTabbedPane.SCROLL_TAB_LAYOUT
+    }
+
+    // Logcat tab content
     logcatToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
     startBtn = JButton("Start").apply {
       isEnabled = false
@@ -208,45 +214,42 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
       isEnabled = false
       addActionListener { stopMonitoring() }
     }
-    val refreshDevicesBtn = JButton("Refresh").apply {
-      addActionListener { refreshDevices() }
-    }
+    val refreshDevicesBtn = JButton("Refresh").apply { addActionListener { refreshDevices() } }
     logcatToolbar.add(JLabel("Device:"))
     logcatToolbar.add(deviceCombo)
     logcatToolbar.add(refreshDevicesBtn)
     logcatToolbar.add(JSeparator(SwingConstants.VERTICAL))
     logcatToolbar.add(startBtn)
     logcatToolbar.add(stopBtn)
-    wrapper.add(logcatToolbar)
+    sourceTabs.addTab("Logcat", logcatToolbar)
 
-    // -- Remote toolbar
+    // Remote tab content
     remoteToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
-    val connectBtn = JButton("Connect").apply {
-      addActionListener { startRemote() }
-    }
-    val disconnectBtn = JButton("Disconnect").apply {
-      addActionListener { stopRemote() }
-    }
+    val connectBtn = JButton("Connect").apply { addActionListener { startRemote() } }
+    val disconnectBtn = JButton("Disconnect").apply { addActionListener { stopRemote() } }
     remoteToolbar.add(JLabel("Endpoint:"))
     remoteToolbar.add(endpointField)
     remoteToolbar.add(JLabel("Auth:"))
     remoteToolbar.add(headerField)
     remoteToolbar.add(connectBtn)
     remoteToolbar.add(disconnectBtn)
-    remoteToolbar.isVisible = false
-    wrapper.add(remoteToolbar)
+    sourceTabs.addTab("Remote", remoteToolbar)
 
+    sourceTabs.addChangeListener {
+      val selected = sourceTabs.selectedIndex
+      if (selected == 0 && isRemoteMode) {
+        stopRemote()
+        isRemoteMode = false
+        statusLabel.text = "Logcat mode"
+      } else if (selected == 1 && !isRemoteMode) {
+        if (isMonitoring) stopMonitoring()
+        isRemoteMode = true
+        statusLabel.text = "Remote mode"
+      }
+    }
+
+    wrapper.add(sourceTabs)
     return wrapper
-  }
-
-  private fun toggleMode() {
-    if (isMonitoring) stopMonitoring()
-    stopRemote()
-    isRemoteMode = !isRemoteMode
-    logcatToolbar.isVisible = !isRemoteMode
-    remoteToolbar.isVisible = isRemoteMode
-    modeBtn.text = if (isRemoteMode) "Switch to Logcat" else "Switch to Remote"
-    statusLabel.text = if (isRemoteMode) "Remote mode" else "Not connected"
   }
 
   private fun startRemote() {
@@ -265,39 +268,22 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
       endpoint = endpoint,
       headers = headers,
       onEvent = { event -> addEvent(event) },
-      onError = { msg -> ApplicationManager.getApplication().invokeLater { statusLabel.text = msg } },
-      onConnected = { ApplicationManager.getApplication().invokeLater { statusLabel.text = "Remote connected" } },
+      onError = { msg -> ApplicationManager.getApplication().invokeLater { setStatus(msg, false) } },
+      onConnected = { ApplicationManager.getApplication().invokeLater { setStatus("Remote connected", true) } },
     )
     remotePoller?.start()
-    statusLabel.text = "Connecting..."
+    setStatus("Connecting...", null)
   }
 
   private fun stopRemote() {
     remotePoller?.stop()
     remotePoller = null
-    if (isRemoteMode) statusLabel.text = "Remote disconnected"
+    if (isRemoteMode) setStatus("Remote disconnected", false)
   }
 
   // -- Filter bar -------------------------------------------------------------
 
-  private fun setupFilterBar(): JPanel {
-    val filterBar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
-
-    filterBar.add(JLabel("Device:"))
-    filterBar.add(deviceComboFilter)
-    filterBar.add(JSeparator(SwingConstants.VERTICAL))
-    filterBar.add(JLabel("Class:"))
-    filterBar.add(classFilter)
-    filterBar.add(JLabel("Method:"))
-    filterBar.add(methodFilter)
-    filterBar.add(JSeparator(SwingConstants.VERTICAL))
-
-    typeFilters.values.forEach { cb ->
-      filterBar.add(cb)
-      cb.addActionListener { refreshTable() }
-    }
-
-    // Instant filtering via DocumentListener
+  private fun initFilterListeners() {
     val filterListener = object : DocumentListener {
       override fun insertUpdate(e: DocumentEvent) = refreshTable()
       override fun removeUpdate(e: DocumentEvent) = refreshTable()
@@ -305,8 +291,99 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
     classFilter.document.addDocumentListener(filterListener)
     methodFilter.document.addDocumentListener(filterListener)
+    fromTimeField.document.addDocumentListener(filterListener)
+    toTimeField.document.addDocumentListener(filterListener)
+    typeFilters.values.forEach { cb -> cb.addActionListener { refreshTable() } }
+    columnVisible.values.forEach { cb -> cb.addActionListener { applyColumnVisibility() } }
+  }
 
-    return filterBar
+  private fun showFiltersPopup(anchor: JButton) {
+    val panel = JPanel().apply {
+      layout = BoxLayout(this, BoxLayout.Y_AXIS)
+      border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
+    }
+
+    // Device
+    val deviceRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    deviceRow.add(JLabel("Device:"))
+    deviceRow.add(deviceComboFilter)
+    panel.add(deviceRow)
+
+    // Class + Method
+    val textRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    textRow.add(JLabel("Class:"))
+    textRow.add(classFilter)
+    textRow.add(JLabel("Method:"))
+    textRow.add(methodFilter)
+    panel.add(textRow)
+
+    // Date range
+    val dateRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    dateRow.add(JLabel("From:"))
+    dateRow.add(fromTimeField)
+    dateRow.add(JLabel("To:"))
+    dateRow.add(toTimeField)
+    panel.add(dateRow)
+
+    // Event types
+    val typeRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    typeFilters.values.forEach { typeRow.add(it) }
+    panel.add(typeRow)
+
+    val popupMenu = JPopupMenu()
+    popupMenu.add(panel)
+    popupMenu.show(anchor, 0, anchor.height)
+  }
+
+  private fun showColumnsPopup(anchor: JButton) {
+    val popup = JPopupMenu()
+    columnVisible.forEach { (name, cb) ->
+      popup.add(cb)
+    }
+    popup.show(anchor, 0, anchor.height)
+  }
+
+  private fun applyColumnVisibility() {
+    val cm = table.columnModel
+    for (i in columnNames.indices) {
+      val col = cm.getColumn(i)
+      val visible = columnVisible[columnNames[i]]?.isSelected ?: true
+      col.minWidth = if (visible) 15 else 0
+      col.maxWidth = if (visible) Int.MAX_VALUE else 0
+      col.preferredWidth = if (visible) col.preferredWidth.coerceAtLeast(60) else 0
+    }
+    table.revalidate()
+    table.repaint()
+  }
+
+  private fun setStatus(text: String, connected: Boolean? = null) {
+    statusLabel.text = text
+    statusIcon.text = when (connected) {
+      true  -> "\uD83D\uDFE2"  // green circle
+      false -> "\uD83D\uDD34"  // red circle
+      null  -> "\u26AA"         // grey circle
+    }
+  }
+
+  private fun parseTimeToMs(text: String): Long? {
+    if (text.isBlank()) return null
+    return try {
+      val trimmed = text.trim()
+      val ldt = if (trimmed.contains("-")) {
+        // yyyy-MM-dd HH:mm:ss
+        java.time.LocalDateTime.parse(trimmed, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+      } else {
+        // HH:mm:ss — assume today
+        val parts = trimmed.split(":")
+        val h = parts.getOrNull(0)?.toIntOrNull() ?: 0
+        val m = parts.getOrNull(1)?.toIntOrNull() ?: 0
+        val s = parts.getOrNull(2)?.toIntOrNull() ?: 0
+        java.time.LocalDateTime.of(java.time.LocalDate.now(), java.time.LocalTime.of(h, m, s))
+      }
+      ldt.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+    } catch (_: Exception) {
+      null
+    }
   }
 
   // -- View mode toggle -------------------------------------------------------
@@ -346,6 +423,8 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
       classFilter   = classFilter.text,
       methodFilter  = methodFilter.text,
       deviceFilter  = if (selectedDevice == "All Devices") "" else selectedDevice,
+      fromMs        = parseTimeToMs(fromTimeField.text) ?: 0L,
+      toMs          = parseTimeToMs(toTimeField.text) ?: Long.MAX_VALUE,
     )
 
     if (isGroupedMode) {
@@ -405,14 +484,14 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     startBtn.isEnabled = false
     stopBtn.isEnabled = true
     val deviceInfo = serial ?: "default"
-    statusLabel.text = "Monitoring ($deviceInfo)..."
+    setStatus("Monitoring ($deviceInfo)...", true)
   }
 
   private fun stopMonitoring() {
     isMonitoring = false
     startBtn.isEnabled = true
     stopBtn.isEnabled = false
-    statusLabel.text = "Stopped"
+    setStatus("Stopped", false)
     monitor.stop()
   }
 

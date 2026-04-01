@@ -75,6 +75,10 @@ object TraceLog {
     remoteSender = null
   }
 
+  /** Returns true if remote sending is currently active. */
+  @JvmStatic
+  fun isRemoteActive(): Boolean = remoteSender != null
+
   // -- Entry -----------------------------------------------------------------
 
   @JvmStatic

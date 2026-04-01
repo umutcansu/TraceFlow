@@ -31,6 +31,8 @@ class ExecutionSession {
     classFilter: String = "",
     methodFilter: String = "",
     deviceFilter: String = "",
+    fromMs: Long = 0L,
+    toMs: Long = Long.MAX_VALUE,
   ): List<TraceEvent> {
     val classRegex = classFilter.toSafeRegex()
     val methodRegex = methodFilter.toSafeRegex()
@@ -38,7 +40,8 @@ class ExecutionSession {
       event.type in typeFilter &&
         (classRegex == null || classRegex.containsMatchIn(event.className)) &&
         (methodRegex == null || methodRegex.containsMatchIn(event.method)) &&
-        (deviceFilter.isEmpty() || event.deviceLabel == deviceFilter)
+        (deviceFilter.isEmpty() || event.deviceLabel == deviceFilter) &&
+        event.timestampMs in fromMs..toMs
     }
   }
 

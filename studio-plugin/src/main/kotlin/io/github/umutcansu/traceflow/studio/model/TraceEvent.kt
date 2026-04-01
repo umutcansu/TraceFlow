@@ -25,6 +25,11 @@ data class TraceEvent(
   val deviceModel: String = "",
   val tag: String = "",
 ) {
+  val dateFormatted: String
+    get() = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+      .withZone(ZoneId.systemDefault())
+      .format(Instant.ofEpochMilli(timestampMs))
+
   val timeFormatted: String
     get() = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
       .withZone(ZoneId.systemDefault())
