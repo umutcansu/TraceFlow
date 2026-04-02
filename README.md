@@ -27,21 +27,47 @@ Zero-code ASM bytecode tracing for Android apps. Automatically instruments all m
 
 ### 1. Add the Runtime Library
 
+<details>
+<summary><b>Kotlin DSL</b> (build.gradle.kts)</summary>
+
 ```kotlin
-// build.gradle.kts (app module)
 dependencies {
   implementation("io.github.umutcansu:traceflow-runtime:1.0.4")
 }
 ```
+</details>
+
+<details>
+<summary><b>Groovy DSL</b> (build.gradle)</summary>
+
+```groovy
+dependencies {
+  implementation 'io.github.umutcansu:traceflow-runtime:1.0.4'
+}
+```
+</details>
 
 ### 2. Apply the Gradle Plugin
 
+<details>
+<summary><b>Kotlin DSL</b> (build.gradle.kts)</summary>
+
 ```kotlin
-// build.gradle.kts (app module)
 plugins {
   id("io.github.umutcansu.traceflow") version "1.0.4"
 }
 ```
+</details>
+
+<details>
+<summary><b>Groovy DSL</b> (build.gradle)</summary>
+
+```groovy
+plugins {
+  id 'io.github.umutcansu.traceflow' version '1.0.4'
+}
+```
+</details>
 
 ### 3. Install the Android Studio Plugin
 
@@ -59,8 +85,10 @@ plugins {
 
 ## Configuration
 
+<details open>
+<summary><b>Kotlin DSL</b> (build.gradle.kts)</summary>
+
 ```kotlin
-// build.gradle.kts (app module)
 traceflow {
   enabled = true
 
@@ -98,6 +126,50 @@ traceflow {
   }
 }
 ```
+</details>
+
+<details>
+<summary><b>Groovy DSL</b> (build.gradle)</summary>
+
+```groovy
+traceflow {
+  enabled = true
+
+  entry {
+    logParams = true
+    maskParams = ["password", "token", "pin", "secret"]
+  }
+
+  exit {
+    logReturnValue = true
+    logDuration = true
+  }
+
+  statements {
+    logTryCatch = true
+    logBranches = false
+  }
+
+  filter {
+    excludePackages = [
+      "com.example.generated",
+      "com.example.databinding",
+    ]
+  }
+
+  remote {
+    enabled = true
+    endpoint = "https://your-server.com/traces"
+    tag = "my-device"
+    headers = ["Authorization": "Bearer token123"]
+    batchSize = 10
+    flushIntervalMs = 3000
+    logcatEnabled = true
+    allowInsecure = false
+  }
+}
+```
+</details>
 
 ### DSL Reference
 
