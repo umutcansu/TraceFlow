@@ -43,6 +43,22 @@ sealed class TraceNode {
         override val children: MutableList<TraceNode> = mutableListOf()
         override val startTimeMs: Long get() = event.timestampMs
     }
+
+    class ManufacturerGroup(
+        val manufacturer: String,
+        override val startTimeMs: Long,
+    ) : TraceNode() {
+        override val label: String get() = "Manufacturer: $manufacturer"
+        override val children: MutableList<TraceNode> = mutableListOf()
+    }
+
+    class DeviceGroup(
+        val deviceLabel: String,
+        override val startTimeMs: Long,
+    ) : TraceNode() {
+        override val label: String get() = "Device: $deviceLabel"
+        override val children: MutableList<TraceNode> = mutableListOf()
+    }
 }
 
 enum class ComponentType { ACTIVITY, FRAGMENT, OTHER }

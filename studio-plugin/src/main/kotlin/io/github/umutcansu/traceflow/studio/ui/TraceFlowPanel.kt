@@ -6,6 +6,7 @@ import io.github.umutcansu.traceflow.studio.remote.RemoteLogPoller
 import io.github.umutcansu.traceflow.studio.model.ExecutionSession
 import io.github.umutcansu.traceflow.studio.model.TraceEvent
 import io.github.umutcansu.traceflow.studio.model.TraceEventType
+import io.github.umutcansu.traceflow.studio.model.GroupingMode
 import io.github.umutcansu.traceflow.studio.model.TraceNode
 import io.github.umutcansu.traceflow.studio.model.TraceTreeBuilder
 import com.intellij.openapi.application.ApplicationManager
@@ -67,9 +68,20 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private val columnNames = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
   private val columnVisible = columnNames.associateWith { JCheckBox(it, it !in listOf("Manufacturer", "Device", "Tag")) }
 
+  // Grouped view column visibility
+  private val groupedColumnNames = listOf("Label", "Time", "Type", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
+  private val groupedColumnVisible = groupedColumnNames.associateWith { JCheckBox(it, it !in listOf("Manufacturer", "Device", "Tag")) }
+
   // Grouped view model
   private val groupedModel = GroupedTableModel()
   private val groupedTable = JBTable(groupedModel)
+
+  // Grouping mode selector
+  private val groupingCombo = JComboBox(GroupingMode.entries.map { it.label }.toTypedArray()).apply {
+    selectedIndex = 0
+    addActionListener { refreshTable() }
+    isVisible = false
+  }
 
   // Remote poller
   private var remotePoller: RemoteLogPoller? = null
@@ -110,6 +122,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     // Apply initial column visibility (Device/Tag hidden by default)
     applyColumnVisibility()
+    applyGroupedColumnVisibility()
 
     // Auto-load devices on panel creation
     refreshDevices()
@@ -155,6 +168,10 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     groupedTable.columnModel.getColumn(1).preferredWidth = 90   // Time
     groupedTable.columnModel.getColumn(2).preferredWidth = 60   // Type
     groupedTable.columnModel.getColumn(3).preferredWidth = 140  // File:Line
+    groupedTable.columnModel.getColumn(4).preferredWidth = 90   // Manufacturer
+    groupedTable.columnModel.getColumn(5).preferredWidth = 100  // Device
+    groupedTable.columnModel.getColumn(6).preferredWidth = 80   // Tag
+    groupedTable.columnModel.getColumn(7).preferredWidth = 400  // Detail
 
     groupedTable.columnModel.getColumn(0).cellRenderer = IndentRenderer()
 
@@ -204,6 +221,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     actionsRow.add(loadBtn)
     actionsRow.add(JSeparator(SwingConstants.VERTICAL))
     actionsRow.add(toggleBtn)
+    actionsRow.add(groupingCombo)
     actionsRow.add(filtersBtn)
     actionsRow.add(columnsBtn)
     actionsRow.add(JSeparator(SwingConstants.VERTICAL))
@@ -308,6 +326,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     toTimeField.document.addDocumentListener(filterListener)
     typeFilters.values.forEach { cb -> cb.addActionListener { refreshTable() } }
     columnVisible.values.forEach { cb -> cb.addActionListener { applyColumnVisibility() } }
+    groupedColumnVisible.values.forEach { cb -> cb.addActionListener { applyGroupedColumnVisibility() } }
   }
 
   private var filtersDialog: JDialog? = null
@@ -374,7 +393,8 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     columnsDialog?.let { it.dispose(); columnsDialog = null; return }
 
     val panel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
-    columnVisible.forEach { (_, cb) -> panel.add(cb) }
+    val visibleMap = if (isGroupedMode) groupedColumnVisible else columnVisible
+    visibleMap.forEach { (_, cb) -> panel.add(cb) }
 
     val loc = anchor.locationOnScreen
     val dialog = JDialog(SwingUtilities.getWindowAncestor(this), "Columns")
@@ -393,6 +413,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   }
 
   private val savedColumnWidths = mutableMapOf<String, Int>()
+  private val savedGroupedColumnWidths = mutableMapOf<String, Int>()
 
   private fun applyColumnVisibility() {
     val cm = table.columnModel
@@ -416,6 +437,30 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
     table.revalidate()
     table.repaint()
+  }
+
+  private fun applyGroupedColumnVisibility() {
+    val cm = groupedTable.columnModel
+    for (i in groupedColumnNames.indices) {
+      val col = cm.getColumn(i)
+      val name = groupedColumnNames[i]
+      val visible = groupedColumnVisible[name]?.isSelected ?: true
+      if (visible) {
+        val saved = savedGroupedColumnWidths[name] ?: col.preferredWidth.coerceAtLeast(60)
+        col.minWidth = 15
+        col.maxWidth = Int.MAX_VALUE
+        col.preferredWidth = saved
+        col.width = saved
+      } else {
+        if (col.width > 0) savedGroupedColumnWidths[name] = col.width
+        col.minWidth = 0
+        col.maxWidth = 0
+        col.preferredWidth = 0
+        col.width = 0
+      }
+    }
+    groupedTable.revalidate()
+    groupedTable.repaint()
   }
 
   private fun setStatus(text: String, connected: Boolean? = null) {
@@ -453,6 +498,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private fun toggleViewMode() {
     isGroupedMode = !isGroupedMode
     toggleBtn.text = if (isGroupedMode) "Flat" else "Grouped"
+    groupingCombo.isVisible = isGroupedMode
     scrollPane.setViewportView(if (isGroupedMode) groupedTable else table)
     refreshTable()
   }
@@ -502,7 +548,8 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     if (isGroupedMode) {
       val wasAtBottom = isScrolledToBottom(groupedTable)
-      val roots = TraceTreeBuilder.build(filtered)
+      val mode = GroupingMode.entries[groupingCombo.selectedIndex]
+      val roots = TraceTreeBuilder.build(filtered, mode)
       val flatRows = TraceTreeBuilder.flatten(roots)
       groupedModel.update(flatRows)
       if (wasAtBottom && groupedModel.rowCount > 0) {
@@ -679,10 +726,13 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
           foreground = when (flatRow.node) {
             is TraceNode.ThreadGroup -> Color(0x6A1B9A)
             is TraceNode.ComponentGroup -> Color(0x00695C)
+            is TraceNode.ManufacturerGroup -> Color(0x4527A0)
+            is TraceNode.DeviceGroup -> Color(0x01579B)
             is TraceNode.MethodCall -> null
             is TraceNode.EventLeaf -> (flatRow.node as TraceNode.EventLeaf).event.type.color
           }
-          if (flatRow.node is TraceNode.ThreadGroup || flatRow.node is TraceNode.ComponentGroup) {
+          if (flatRow.node is TraceNode.ThreadGroup || flatRow.node is TraceNode.ComponentGroup
+            || flatRow.node is TraceNode.ManufacturerGroup || flatRow.node is TraceNode.DeviceGroup) {
             font = font.deriveFont(java.awt.Font.BOLD)
           }
         }
@@ -694,7 +744,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   // -- Grouped table model ----------------------------------------------------
 
   inner class GroupedTableModel : AbstractTableModel() {
-    private val columns = listOf("Label", "Time", "Type", "File:Line")
+    private val columns = listOf("Label", "Time", "Type", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
     private var flatRows: List<TraceTreeBuilder.FlatRow> = emptyList()
 
     fun update(rows: List<TraceTreeBuilder.FlatRow>) {
@@ -708,33 +758,25 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     override fun getColumnCount() = columns.size
     override fun getColumnName(column: Int) = columns[column]
 
+    private fun eventOf(node: TraceNode): TraceEvent? = when (node) {
+      is TraceNode.MethodCall -> node.event
+      is TraceNode.EventLeaf -> node.event
+      else -> null
+    }
+
     override fun getValueAt(rowIndex: Int, columnIndex: Int): Any {
       val flatRow = flatRows.getOrNull(rowIndex) ?: return ""
       val node = flatRow.node
+      val event = eventOf(node)
       return when (columnIndex) {
         0 -> node.label
-        1 -> {
-          val event = when (node) {
-            is TraceNode.MethodCall -> node.event
-            is TraceNode.EventLeaf -> node.event
-            else -> null
-          }
-          event?.timeFormatted ?: ""
-        }
-        2 -> {
-          when (node) {
-            is TraceNode.MethodCall -> node.event.type.label
-            is TraceNode.EventLeaf -> node.event.type.label
-            else -> ""
-          }
-        }
-        3 -> {
-          when (node) {
-            is TraceNode.MethodCall -> node.event.sourceRef
-            is TraceNode.EventLeaf -> node.event.sourceRef
-            else -> ""
-          }
-        }
+        1 -> event?.timeFormatted ?: ""
+        2 -> event?.type?.label ?: ""
+        3 -> event?.sourceRef ?: ""
+        4 -> event?.deviceManufacturer ?: ""
+        5 -> event?.deviceModel ?: ""
+        6 -> event?.tag ?: ""
+        7 -> event?.detail ?: ""
         else -> ""
       }
     }
