@@ -37,6 +37,7 @@ class TraceFlowInitProvider : ContentProvider() {
       val flushIntervalMs = config.optLong("flushIntervalMs", 3000L)
 
       val logcatEnabled = config.optBoolean("logcatEnabled", true)
+      val allowInsecure = config.optBoolean("allowInsecure", false)
       TraceLog.logcatEnabled = logcatEnabled
 
       TraceLog.startRemote(
@@ -45,6 +46,7 @@ class TraceFlowInitProvider : ContentProvider() {
         headers = headers,
         batchSize = batchSize,
         flushIntervalMs = flushIntervalMs,
+        allowInsecure = allowInsecure,
       )
       Log.d("TraceFlow", "Remote auto-started: $endpoint (logcat=${logcatEnabled})")
     } catch (_: java.io.FileNotFoundException) {

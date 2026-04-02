@@ -51,6 +51,7 @@ class TracingPlugin : Plugin<Project> {
         task.batchSize.set(ext.remote.batchSize)
         task.flushIntervalMs.set(ext.remote.flushIntervalMs)
         task.logcatEnabled.set(ext.remote.logcatEnabled)
+        task.allowInsecure.set(ext.remote.allowInsecure)
         task.outputDir.set(project.layout.buildDirectory.dir("generated/traceflow/${variant.name}/assets"))
       }
 

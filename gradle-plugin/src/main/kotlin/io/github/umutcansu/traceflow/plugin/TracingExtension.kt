@@ -88,5 +88,8 @@ abstract class TracingExtension @Inject constructor(objects: ObjectFactory) {
 
     /** Enable logcat output (default true). Set false to disable logcat while keeping remote active. */
     val logcatEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
+
+    /** Allow insecure HTTP endpoints (default false). When false, only HTTPS and localhost are permitted. */
+    val allowInsecure: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
   }
 }

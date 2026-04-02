@@ -17,6 +17,7 @@ abstract class GenerateRemoteConfigTask : DefaultTask() {
   @get:Input abstract val batchSize: Property<Int>
   @get:Input abstract val flushIntervalMs: Property<Long>
   @get:Input abstract val logcatEnabled: Property<Boolean>
+  @get:Input abstract val allowInsecure: Property<Boolean>
   @get:OutputDirectory abstract val outputDir: DirectoryProperty
 
   @TaskAction
@@ -24,8 +25,15 @@ abstract class GenerateRemoteConfigTask : DefaultTask() {
     if (!remoteEnabled.get()) return
 
     val ep = endpoint.get()
-    if (ep.startsWith("http://")) {
-      logger.warn("TraceFlow: Remote endpoint uses HTTP. Trace data will be sent unencrypted. Use HTTPS in production.")
+    val isLocal = ep.contains("localhost") || ep.contains("127.0.0.1") || ep.contains("10.0.2.2")
+    if (ep.startsWith("http://") && !isLocal && !allowInsecure.get()) {
+      throw org.gradle.api.GradleException(
+        "TraceFlow: Remote endpoint '$ep' uses insecure HTTP. " +
+          "Use HTTPS, localhost, or set allowInsecure = true for development."
+      )
+    }
+    if (ep.startsWith("http://") && allowInsecure.get()) {
+      logger.warn("TraceFlow: allowInsecure is enabled. Trace data will be sent unencrypted over HTTP.")
     }
 
     val headersJson = headers.get().entries.joinToString(",") { (k, v) ->
@@ -39,7 +47,8 @@ abstract class GenerateRemoteConfigTask : DefaultTask() {
   "headers": {$headersJson},
   "batchSize": ${batchSize.get()},
   "flushIntervalMs": ${flushIntervalMs.get()},
-  "logcatEnabled": ${logcatEnabled.get()}
+  "logcatEnabled": ${logcatEnabled.get()},
+  "allowInsecure": ${allowInsecure.get()}
 }"""
 
     val file = outputDir.get().asFile.resolve("traceflow_remote.json")

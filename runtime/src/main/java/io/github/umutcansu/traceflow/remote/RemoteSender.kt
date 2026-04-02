@@ -26,11 +26,18 @@ internal class RemoteSender(
     private val flushIntervalMs: Long = 3000L,
     private val maxRetries: Int = 3,
     private val maxQueueSize: Int = 1000,
+    private val allowInsecure: Boolean = false,
 ) {
 
     init {
-        if (endpoint.startsWith("http://")) {
-            Log.w("TraceFlow", "WARNING: Remote endpoint uses HTTP (not HTTPS). Trace data will be sent unencrypted. Use HTTPS in production.")
+        val isLocal = endpoint.contains("localhost") || endpoint.contains("127.0.0.1") || endpoint.contains("10.0.2.2")
+        if (endpoint.startsWith("http://") && !isLocal && !allowInsecure) {
+            throw IllegalArgumentException(
+                "TraceFlow: Remote endpoint uses insecure HTTP. Use HTTPS, localhost, or set allowInsecure = true."
+            )
+        }
+        if (endpoint.startsWith("http://") && allowInsecure) {
+            Log.w("TraceFlow", "WARNING: allowInsecure is enabled. Trace data will be sent unencrypted over HTTP.")
         }
     }
 
