@@ -80,7 +80,7 @@ plugins {
 
 **Option B — Manual install:**
 
-1. Download the latest `.zip` from [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/30959-traceflow) or [GitHub Releases](https://github.com/umutcansu/TraceFlow/releases)
+1. Download the latest `.zip` from [JetBrains Marketplace](https://plugins.jetbrains.com/plugin/30959-traceflow)
 2. Android Studio > **Settings** > **Plugins** > **Gear icon** > **Install Plugin from Disk**
 3. Select the downloaded `.zip` file and restart
 
