@@ -238,54 +238,74 @@ TraceLog.startRemote(
 
 ## Runtime Controls
 
-All controls are thread-safe and take effect immediately.
+All controls are thread-safe (`@Volatile`) and take effect immediately.
 
-### Switches
+### Runtime Properties
 
-```kotlin
-// Master switch — disables both logcat and remote
-TraceLog.enabled = false
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `TraceLog.enabled` | `Boolean` | `true` | Master switch — disables both logcat and remote |
+| `TraceLog.logcatEnabled` | `Boolean` | `true` | Controls logcat output independently |
+| `TraceLog.remoteEnabled` | `Boolean` | `true` | Controls remote sending independently |
+| `TraceLog.deviceTag` | `String` | `""` | Device/session identifier, changeable anytime |
+| `TraceLog.maskParams` | `List<String>` | `["password","token","pin","secret","cvv","ssn"]` | Parameter names to mask with `***` |
 
-// Independent controls
-TraceLog.logcatEnabled = false  // stop logcat output, remote continues
-TraceLog.remoteEnabled = false  // stop remote sending, logcat continues
-```
+### Control Combinations
 
-### Remote Management
+| `enabled` | `logcatEnabled` | `remoteEnabled` | Logcat | Remote |
+|-----------|-----------------|------------------|--------|--------|
+| `true` | `true` | `true` | writes | sends |
+| `true` | `false` | `true` | silent | sends |
+| `true` | `true` | `false` | writes | silent |
+| `true` | `false` | `false` | silent | silent (zero JSON overhead) |
+| `false` | `*` | `*` | silent | silent (first-line return, near-zero overhead) |
 
-```kotlin
-// Start/stop remote programmatically
-TraceLog.startRemote("https://your-server.com/traces")
-TraceLog.stopRemote()
+### Runtime Methods
 
-// Check remote status
-TraceLog.isRemoteActive()
-```
-
-### Device Identity
-
-```kotlin
-// Change device tag at runtime (does not restart the connection)
-TraceLog.deviceTag = "new-session-tag"
-```
-
-Each event automatically includes `deviceManufacturer` (e.g. "samsung") and `deviceModel` (e.g. "SM-G980F"). The `tag` is user-defined and optional.
+| Method | Description |
+|--------|-------------|
+| `TraceLog.startRemote(endpoint, ...)` | Start or restart remote sending |
+| `TraceLog.stopRemote()` | Stop remote, flush pending events |
+| `TraceLog.isRemoteActive()` | Check if remote is currently active |
 
 ### Parameter Masking
 
+| Param name | `maskParams = ["password","token"]` | Logcat / Remote output |
+|------------|-------------------------------------|------------------------|
+| `password` | contains "password" | `password: ***` |
+| `userPassword` | contains "password" | `userPassword: ***` |
+| `token` | contains "token" | `token: ***` |
+| `username` | no match | `username: john@mail.com` |
+| `param0` (no debug info) | no match | `param0: actual_value` |
+
+Masking is applied at runtime on both logcat and remote output. Override at runtime:
+
 ```kotlin
-// Override mask list at runtime
+// Custom mask list
 TraceLog.maskParams = listOf("password", "creditCard", "ssn")
 
 // Disable masking entirely
 TraceLog.maskParams = emptyList()
 ```
 
-Masking is applied at runtime — parameter names containing any mask keyword will have their values replaced with `***` in both logcat and remote output.
+### Device Identity
+
+Each event automatically includes device info:
+
+| JSON Field | Source | Example |
+|------------|--------|---------|
+| `deviceManufacturer` | `Build.MANUFACTURER` (auto) | `"samsung"` |
+| `deviceModel` | `Build.MODEL` (auto) | `"SM-G980F"` |
+| `tag` | `TraceLog.deviceTag` (user-defined) | `"qa-team-1"` |
+
+Change tag at runtime without restarting the connection:
+```kotlin
+TraceLog.deviceTag = "new-session-tag"
+```
 
 ### Java Compatibility
 
-All controls work from Java with identical syntax:
+All controls work identically from Java:
 ```java
 TraceLog.enabled = false;
 TraceLog.logcatEnabled = false;
@@ -296,7 +316,7 @@ TraceLog.startRemote("https://your-server.com/traces");
 TraceLog.stopRemote();
 ```
 
-> **Note:** Calling `startRemote()` at runtime will **override all DSL values** (endpoint, tag, headers, etc.). To change only specific fields without restarting the connection, use the individual properties (`deviceTag`, `logcatEnabled`, `remoteEnabled`).
+> **Note:** Calling `startRemote()` at runtime **overrides all DSL values** (endpoint, tag, headers, etc.). To change only specific fields without restarting the connection, use properties directly (`deviceTag`, `logcatEnabled`, `remoteEnabled`).
 
 ## Release Tracing (Field Debugging)
 
@@ -336,22 +356,52 @@ class MyApplication : Application() {
 
 ## Studio Plugin Features
 
-- **Flat view** — Chronological event table with sortable columns
-- **Grouped view** — Tree hierarchy: Thread > Activity/Fragment > methods
-
 ![TraceFlow Grouped View](screenshots/grouped-view.png)
 
-- **Manufacturer filter** — Filter by device manufacturer (samsung, google, etc.)
-- **Device filter** — Filter by device model
-- **Tag filter** — Filter by user-defined session tag
-- **Regex filters** — Filter by class (`.*Fragment$`) or method (`on(Create|Resume)`)
-- **Date range filter** — Filter events by time window
-- **Column visibility** — Show/hide columns including Manufacturer, Device, Tag (hidden by default)
-- **Instant filtering** — Results update on every keystroke
-- **Smart auto-scroll** — Follows new events at bottom, stays put when scrolled up
-- **Source navigation** — Double-click any event to jump to the source line
-- **Session export/import** — Save traces as JSON, load previous sessions (preserves device info)
-- **Color-coded events** — ENTER (green), EXIT (blue), CATCH (red), BRANCH (amber)
+### Views
+
+| View | Description |
+|------|-------------|
+| Flat | Chronological event table with sortable columns |
+| Grouped | Tree hierarchy: Thread > Activity/Fragment > methods (expand/collapse) |
+
+### Filters
+
+| Filter | Type | Description |
+|--------|------|-------------|
+| Manufacturer | Dropdown | Filter by device manufacturer (samsung, google, etc.) |
+| Device | Dropdown | Filter by device model + tag |
+| Tag | Text | Filter by user-defined session tag |
+| Class | Regex | Filter by class name (e.g. `.*Fragment$`) |
+| Method | Regex | Filter by method name (e.g. `on(Create\|Resume)`) |
+| Date range | From / To | Filter events by time window |
+| Event type | Checkboxes | ENTER, EXIT, CATCH, BRANCH |
+
+### Columns
+
+| Column | Default visible | Description |
+|--------|----------------|-------------|
+| Date | yes | Event date (yyyy-MM-dd) |
+| Time | yes | Event time (HH:mm:ss.SSS) |
+| Type | yes | ENTER / EXIT / CATCH / BRANCH (color-coded) |
+| Class | yes | Class name |
+| Method | yes | Method name |
+| File:Line | yes | Source file and line number |
+| Manufacturer | no | Device manufacturer |
+| Device | no | Device model |
+| Tag | no | User-defined tag |
+| Detail | yes | Parameters, return values, exceptions |
+
+### Other Features
+
+| Feature | Description |
+|---------|-------------|
+| Source navigation | Double-click any event to jump to the source line |
+| Smart auto-scroll | Follows new events at bottom, stays put when scrolled up |
+| Session export | Save traces as JSON (preserves device info) |
+| Session import | Load JSON or raw logcat files |
+| Color-coded events | ENTER (green), EXIT (blue), CATCH (red), BRANCH (amber) |
+| Live device detection | New manufacturers/devices auto-appear in filter dropdowns |
 
 ## Log Output
 
@@ -434,10 +484,13 @@ The server starts on port **4567** by default (override with `PORT` env variable
 
 ### Security
 
-By default, only **HTTPS** and **localhost** (`127.0.0.1`, `localhost`, `10.0.2.2`) endpoints are allowed.
-
-- **Build time:** HTTP with a non-localhost endpoint causes a `GradleException` (build fails)
-- **Runtime:** `startRemote()` with insecure HTTP throws `IllegalArgumentException`
+| Endpoint | `allowInsecure` | Build | Runtime |
+|----------|-----------------|-------|---------|
+| `https://api.example.com` | `false` | builds | connects |
+| `http://127.0.0.1:4567` | `false` | builds (localhost exempt) | connects |
+| `http://10.0.2.2:4567` | `false` | builds (emulator exempt) | connects |
+| `http://192.168.1.80:4567` | `false` | **GradleException** | **IllegalArgumentException** |
+| `http://192.168.1.80:4567` | `true` | builds (with warning) | connects (with warning) |
 
 For local development with HTTP:
 ```kotlin
