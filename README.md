@@ -226,7 +226,10 @@ Logcat output continues regardless of remote streaming (unless `logcatEnabled = 
 
 ### Security
 
-By default, only **HTTPS** and **localhost** (`127.0.0.1`, `localhost`, `10.0.2.2`) endpoints are allowed. Insecure HTTP to remote hosts will fail at both build time and runtime.
+By default, only **HTTPS** and **localhost** (`127.0.0.1`, `localhost`, `10.0.2.2`) endpoints are allowed.
+
+- **Build time:** Using HTTP with a non-localhost endpoint without `allowInsecure = true` will cause a `GradleException` and the build will fail.
+- **Runtime:** Calling `startRemote()` with an insecure HTTP endpoint without `allowInsecure = true` will throw an `IllegalArgumentException`.
 
 For local development with HTTP:
 ```kotlin
@@ -255,10 +258,10 @@ Control tracing at runtime without recompilation:
 TraceLog.enabled = false
 
 // Independent controls
-TraceLog.logcatEnabled = false  // stop logcat, remote continues
-TraceLog.remoteEnabled = false  // stop remote, logcat continues
+TraceLog.logcatEnabled = false  // stop logcat output, remote continues
+TraceLog.remoteEnabled = false  // stop remote sending, logcat continues
 
-// Change device tag at runtime
+// Change device tag at runtime (does not restart the connection)
 TraceLog.deviceTag = "new-session-tag"
 
 // Start/stop remote programmatically
@@ -266,12 +269,24 @@ TraceLog.startRemote("https://your-server.com/traces")
 TraceLog.stopRemote()
 ```
 
+> **Note:** If remote was auto-started via DSL, calling `startRemote()` at runtime will **override all DSL values** (endpoint, tag, headers, etc.). Use the individual fields below to change only what you need without restarting the connection:
+
+```kotlin
+// These do NOT restart the connection — safe to call anytime
+TraceLog.deviceTag = "updated-tag"
+TraceLog.logcatEnabled = false
+TraceLog.remoteEnabled = false
+```
+
 All controls work from both Kotlin and Java:
 ```java
+// Java
 TraceLog.enabled = false;
 TraceLog.logcatEnabled = false;
+TraceLog.remoteEnabled = false;
 TraceLog.deviceTag = "my-device";
 TraceLog.startRemote("https://your-server.com/traces");
+TraceLog.stopRemote();
 ```
 
 ## Built-in Exclusions
