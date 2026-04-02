@@ -45,13 +45,13 @@ object TraceLog {
   @Volatile
   private var remoteSender: RemoteSender? = null
 
-  /** Device model (auto-detected) included in every remote JSON event. */
+  /** Device model (auto-detected) included in every JSON event. */
   @Volatile
-  private var deviceModel: String = ""
+  private var deviceModel: String = Build.MODEL
 
-  /** Device manufacturer (auto-detected) included in every remote JSON event. */
+  /** Device manufacturer (auto-detected) included in every JSON event. */
   @Volatile
-  private var deviceManufacturer: String = ""
+  private var deviceManufacturer: String = Build.MANUFACTURER
 
   /** User-defined tag for identifying this device/session in remote logs. Can be changed at any time. */
   @JvmField
