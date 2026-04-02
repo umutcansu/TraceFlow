@@ -28,7 +28,7 @@ import javax.swing.event.DocumentListener
 import javax.swing.table.AbstractTableModel
 import javax.swing.table.DefaultTableCellRenderer
 
-class TraceFlowWindowFactory : ToolWindowFactory {
+class TraceFlowWindowFactory : ToolWindowFactory, com.intellij.openapi.project.DumbAware {
   override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
     val panel = TraceFlowPanel(project)
     val content = toolWindow.contentManager.factory.createContent(panel, "", false)
