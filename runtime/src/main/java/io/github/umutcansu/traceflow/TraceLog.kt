@@ -37,12 +37,21 @@ object TraceLog {
   @Volatile
   var remoteEnabled: Boolean = true
 
+  /** Parameter names containing any of these strings will have their values masked as "***". */
+  @JvmField
+  @Volatile
+  var maskParams: List<String> = listOf("password", "token", "pin", "secret", "cvv", "ssn")
+
   @Volatile
   private var remoteSender: RemoteSender? = null
 
   /** Device model (auto-detected) included in every remote JSON event. */
   @Volatile
   private var deviceModel: String = ""
+
+  /** Device manufacturer (auto-detected) included in every remote JSON event. */
+  @Volatile
+  private var deviceManufacturer: String = ""
 
   /** User-defined tag for identifying this device/session in remote logs. Can be changed at any time. */
   @JvmField
@@ -77,6 +86,7 @@ object TraceLog {
   ) {
     remoteSender?.stop()
     deviceModel = Build.MODEL
+    deviceManufacturer = Build.MANUFACTURER
     deviceTag = tag
     remoteSender = RemoteSender(endpoint, headers, batchSize, flushIntervalMs, allowInsecure = allowInsecure)
   }
@@ -208,6 +218,7 @@ object TraceLog {
         put("threadId", Thread.currentThread().id)
         put("threadName", Thread.currentThread().name)
         put("ts", System.currentTimeMillis())
+        if (deviceManufacturer.isNotEmpty()) put("deviceManufacturer", deviceManufacturer)
         if (deviceModel.isNotEmpty()) put("deviceModel", deviceModel)
         if (deviceTag.isNotEmpty()) put("tag", deviceTag)
         if (params != null) {
@@ -227,14 +238,22 @@ object TraceLog {
 
   // -- Helpers ---------------------------------------------------------------
 
+  private fun isMasked(name: String): Boolean {
+    if (maskParams.isEmpty()) return false
+    val lower = name.lowercase()
+    return maskParams.any { lower.contains(it) }
+  }
+
   private fun buildParamString(names: Array<String>, values: Array<Any?>): String {
     return names.zip(values).joinToString("\n  ") { (name, value) ->
-      "$name: ${safeToString(value)}"
+      "$name: ${if (isMasked(name)) "***" else safeToString(value)}"
     }
   }
 
   private fun buildParamMap(names: Array<String>, values: Array<Any?>): Map<String, String> {
-    return names.zip(values).associate { (name, value) -> name to safeToString(value) }
+    return names.zip(values).associate { (name, value) ->
+      name to if (isMasked(name)) "***" else safeToString(value)
+    }
   }
 
   @JvmStatic

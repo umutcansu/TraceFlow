@@ -22,6 +22,7 @@ data class TraceEvent(
   val timestampMs: Long,
   /** ENTER -> parameter map, EXIT -> result, CATCH -> exception info, BRANCH -> condition */
   val extra: Map<String, String> = emptyMap(),
+  val deviceManufacturer: String = "",
   val deviceModel: String = "",
   val tag: String = "",
 ) {

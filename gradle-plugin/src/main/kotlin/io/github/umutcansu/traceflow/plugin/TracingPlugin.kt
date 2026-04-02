@@ -20,11 +20,15 @@ class TracingPlugin : Plugin<Project> {
     val androidComponents = project.extensions.getByType(AndroidComponentsExtension::class.java)
 
     androidComponents.onVariants { variant ->
+      // Skip injection for release variants unless releaseEnabled is true
+      val isRelease = variant.buildType?.contains("release", ignoreCase = true) == true
+      val shouldInject = ext.enabled.get() && (!isRelease || ext.releaseEnabled.get())
+
       variant.instrumentation.transformClassesWith(
         TraceClassVisitorFactory::class.java,
         InstrumentationScope.PROJECT,
       ) { params ->
-        params.enabled.set(ext.enabled)
+        params.enabled.set(shouldInject)
         params.logParams.set(ext.entry.logParams)
         params.maskParams.set(ext.entry.maskParams)
         params.logReturnValue.set(ext.exit.logReturnValue)

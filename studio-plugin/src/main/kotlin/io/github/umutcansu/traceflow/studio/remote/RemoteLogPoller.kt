@@ -130,6 +130,7 @@ class RemoteLogPoller(
       threadName = obj.get("threadName")?.asString ?: "",
       timestampMs = obj.get("ts")?.asLong ?: System.currentTimeMillis(),
       extra = extra,
+      deviceManufacturer = obj.get("deviceManufacturer")?.asString ?: "",
       deviceModel = obj.get("deviceModel")?.asString ?: "",
       tag = obj.get("tag")?.asString ?: "",
     )

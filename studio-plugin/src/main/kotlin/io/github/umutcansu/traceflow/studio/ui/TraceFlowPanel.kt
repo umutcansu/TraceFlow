@@ -46,6 +46,12 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   // Filter fields
   private val classFilter  = JTextField(15).apply { toolTipText = "Regex filter (e.g. .*Fragment$, Login.*)" }
   private val methodFilter = JTextField(15).apply { toolTipText = "Regex filter (e.g. on(Create|Resume), reduce)" }
+  private val tagFilter    = JTextField(10).apply { toolTipText = "Filter by tag (e.g. qa-team-1)" }
+  private val manufacturerComboFilter = JComboBox<String>().apply {
+    addItem("All Manufacturers")
+    addActionListener { refreshTable() }
+    toolTipText = "Filter by manufacturer"
+  }
   private val deviceComboFilter = JComboBox<String>().apply {
     addItem("All Devices")
     addActionListener { refreshTable() }
@@ -58,8 +64,8 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private val toTimeField   = JTextField(16).apply { toolTipText = "To (yyyy-MM-dd HH:mm:ss or HH:mm:ss). Leave empty for no upper bound." }
 
   // Column visibility
-  private val columnNames = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Detail")
-  private val columnVisible = columnNames.associateWith { JCheckBox(it, true) }
+  private val columnNames = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
+  private val columnVisible = columnNames.associateWith { JCheckBox(it, it !in listOf("Manufacturer", "Device", "Tag")) }
 
   // Grouped view model
   private val groupedModel = GroupedTableModel()
@@ -102,6 +108,9 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     scrollPane = JBScrollPane(table)
     add(scrollPane, BorderLayout.CENTER)
 
+    // Apply initial column visibility (Device/Tag hidden by default)
+    applyColumnVisibility()
+
     // Auto-load devices on panel creation
     refreshDevices()
   }
@@ -117,7 +126,10 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     table.columnModel.getColumn(3).preferredWidth = 180  // Class
     table.columnModel.getColumn(4).preferredWidth = 140  // Method
     table.columnModel.getColumn(5).preferredWidth = 140  // File:Line
-    table.columnModel.getColumn(6).preferredWidth = 400  // Detail
+    table.columnModel.getColumn(6).preferredWidth = 90   // Manufacturer
+    table.columnModel.getColumn(7).preferredWidth = 100  // Device
+    table.columnModel.getColumn(8).preferredWidth = 80   // Tag
+    table.columnModel.getColumn(9).preferredWidth = 400  // Detail
 
     // Color the Type column
     table.columnModel.getColumn(2).cellRenderer = TypeColorRenderer()
@@ -291,30 +303,40 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
     classFilter.document.addDocumentListener(filterListener)
     methodFilter.document.addDocumentListener(filterListener)
+    tagFilter.document.addDocumentListener(filterListener)
     fromTimeField.document.addDocumentListener(filterListener)
     toTimeField.document.addDocumentListener(filterListener)
     typeFilters.values.forEach { cb -> cb.addActionListener { refreshTable() } }
     columnVisible.values.forEach { cb -> cb.addActionListener { applyColumnVisibility() } }
   }
 
+  private var filtersDialog: JDialog? = null
+
   private fun showFiltersPopup(anchor: JButton) {
+    // Toggle — close if already open
+    filtersDialog?.let { it.dispose(); filtersDialog = null; return }
+
     val panel = JPanel().apply {
       layout = BoxLayout(this, BoxLayout.Y_AXIS)
       border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
     }
 
-    // Device
+    // Manufacturer + Device
     val deviceRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    deviceRow.add(JLabel("Manufacturer:"))
+    deviceRow.add(manufacturerComboFilter)
     deviceRow.add(JLabel("Device:"))
     deviceRow.add(deviceComboFilter)
     panel.add(deviceRow)
 
-    // Class + Method
+    // Class + Method + Tag
     val textRow = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
     textRow.add(JLabel("Class:"))
     textRow.add(classFilter)
     textRow.add(JLabel("Method:"))
     textRow.add(methodFilter)
+    textRow.add(JLabel("Tag:"))
+    textRow.add(tagFilter)
     panel.add(textRow)
 
     // Date range
@@ -330,9 +352,20 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     typeFilters.values.forEach { typeRow.add(it) }
     panel.add(typeRow)
 
-    val popupMenu = JPopupMenu()
-    popupMenu.add(panel)
-    popupMenu.show(anchor, 0, anchor.height)
+    val loc = anchor.locationOnScreen
+    val dialog = JDialog(SwingUtilities.getWindowAncestor(this), "Filters")
+    dialog.isUndecorated = true
+    dialog.contentPane = panel
+    dialog.pack()
+    dialog.setLocation(loc.x, loc.y + anchor.height)
+    dialog.isVisible = true
+    dialog.addWindowListener(object : java.awt.event.WindowAdapter() {
+      override fun windowDeactivated(e: java.awt.event.WindowEvent) {
+        dialog.dispose()
+        filtersDialog = null
+      }
+    })
+    filtersDialog = dialog
   }
 
   private fun showColumnsPopup(anchor: JButton) {
@@ -408,6 +441,14 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
           deviceComboFilter.addItem(label)
         }
       }
+      // Update manufacturer combo if new manufacturer seen
+      val manufacturer = event.deviceManufacturer
+      if (manufacturer.isNotEmpty()) {
+        val existing = (0 until manufacturerComboFilter.itemCount).map { manufacturerComboFilter.getItemAt(it) }
+        if (manufacturer !in existing) {
+          manufacturerComboFilter.addItem(manufacturer)
+        }
+      }
       refreshTable()
     }
   }
@@ -418,13 +459,16 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
       .map { it.key }
       .toSet()
     val selectedDevice = deviceComboFilter.selectedItem as? String ?: "All Devices"
+    val selectedManufacturer = manufacturerComboFilter.selectedItem as? String ?: "All Manufacturers"
     val filtered = session.filtered(
-      typeFilter    = activeTypes,
-      classFilter   = classFilter.text,
-      methodFilter  = methodFilter.text,
-      deviceFilter  = if (selectedDevice == "All Devices") "" else selectedDevice,
-      fromMs        = parseTimeToMs(fromTimeField.text) ?: 0L,
-      toMs          = parseTimeToMs(toTimeField.text) ?: Long.MAX_VALUE,
+      typeFilter          = activeTypes,
+      classFilter         = classFilter.text,
+      methodFilter        = methodFilter.text,
+      deviceFilter        = if (selectedDevice == "All Devices") "" else selectedDevice,
+      manufacturerFilter  = if (selectedManufacturer == "All Manufacturers") "" else selectedManufacturer,
+      tagFilter           = tagFilter.text,
+      fromMs              = parseTimeToMs(fromTimeField.text) ?: 0L,
+      toMs                = parseTimeToMs(toTimeField.text) ?: Long.MAX_VALUE,
     )
 
     if (isGroupedMode) {
@@ -527,8 +571,26 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
       JOptionPane.showMessageDialog(this, "Could not read file:\n${e.message}", "Error", JOptionPane.ERROR_MESSAGE)
       return
     }
+    refreshDeviceCombo()
     refreshTable()
     statusLabel.text = "$count events loaded"
+  }
+
+  private fun refreshDeviceCombo() {
+    val devices = session.devices()
+    val existingDevices = (0 until deviceComboFilter.itemCount).map { deviceComboFilter.getItemAt(it) }
+    for (label in devices) {
+      if (label !in existingDevices) {
+        deviceComboFilter.addItem(label)
+      }
+    }
+    val manufacturers = session.manufacturers()
+    val existingMfr = (0 until manufacturerComboFilter.itemCount).map { manufacturerComboFilter.getItemAt(it) }
+    for (mfr in manufacturers) {
+      if (mfr !in existingMfr) {
+        manufacturerComboFilter.addItem(mfr)
+      }
+    }
   }
 
   private fun saveSession() {

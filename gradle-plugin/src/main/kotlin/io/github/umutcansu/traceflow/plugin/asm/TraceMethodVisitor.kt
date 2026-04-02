@@ -26,14 +26,18 @@ class TraceMethodVisitor(
   private var entryLine = 0
   private var currentLine = 0
 
-  // try-catch map: handler label -> try start line
-  private val catchHandlerLines = mutableMapOf<Label, Int>()
-  private var pendingTryStartLine = 0
+  // try-catch map: handler label -> start label (resolved to line later)
+  private val catchHandlerStartLabels = mutableMapOf<Label, Label>()  // handler -> start
+  private val catchHandlerLines = mutableMapOf<Label, Int>()          // handler -> try start line
+  private val labelLines = mutableMapOf<Label, Int>()                 // label -> line number
 
   // Parameter info (descriptor = AdviceAdapter's super constructor param -> methodDesc field)
   private val argTypes: Array<Type> = Type.getArgumentTypes(descriptor)
   private val isStatic = (access and Opcodes.ACC_STATIC) != 0
   private val desc: String = descriptor
+
+  // Real parameter names collected from visitParameter (requires -parameters flag or Kotlin metadata)
+  private val realParamNames = mutableListOf<String>()
 
   // -- Annotation check -------------------------------------------------------
 
@@ -42,11 +46,20 @@ class TraceMethodVisitor(
     return super.visitAnnotation(annDescriptor, visible)
   }
 
+  // -- Parameter name collection (called before method body) ------------------
+
+  override fun visitParameter(name: String?, access: Int) {
+    if (name != null) realParamNames.add(name)
+    super.visitParameter(name, access)
+  }
+
   // -- Line number tracking ----------------------------------------------------
 
   override fun visitLineNumber(line: Int, start: Label) {
     currentLine = line
     if (entryLine == 0) entryLine = line
+    // Update label -> line mapping (visitLineNumber comes after visitLabel)
+    labelLines[start] = line
     super.visitLineNumber(line, start)
   }
 
@@ -54,9 +67,10 @@ class TraceMethodVisitor(
 
   override fun visitTryCatchBlock(start: Label, end: Label, handler: Label, type: String?) {
     super.visitTryCatchBlock(start, end, handler, type)
-    if (config.logTryCatch) {
-      // Mark handler label -> line where try started (currentLine may not be exact yet)
-      catchHandlerLines[handler] = pendingTryStartLine
+    if (config.logTryCatch && type != null) {
+      // type == null means finally block — skip, only trace catch handlers
+      // Store start label; resolve to line number when the label is visited
+      catchHandlerStartLabels[handler] = start
     }
   }
 
@@ -64,8 +78,12 @@ class TraceMethodVisitor(
 
   override fun visitLabel(label: Label) {
     super.visitLabel(label)
-    if (config.logTryCatch && catchHandlerLines.containsKey(label)) {
-      val tryStart = catchHandlerLines[label] ?: 0
+    // Track label -> line mapping for try start resolution
+    labelLines[label] = currentLine
+    // Resolve handler -> try start line when handler label is reached
+    if (config.logTryCatch && catchHandlerStartLabels.containsKey(label)) {
+      val startLabel = catchHandlerStartLabels[label]
+      val tryStart = if (startLabel != null) labelLines[startLabel] ?: 0 else 0
       // At catch handler entry, exception is on the stack -- dup and store to local
       mv.visitInsn(Opcodes.DUP)
       val exLocal = newLocal(Type.getType(Throwable::class.java))
@@ -74,8 +92,8 @@ class TraceMethodVisitor(
       pushRuntimeClassName()
       mv.visitLdcInsn(methodName)
       mv.visitLdcInsn(sourceFile)
-      mv.visitIntInsn(Opcodes.SIPUSH, currentLine)
-      mv.visitIntInsn(Opcodes.SIPUSH, tryStart)
+      mv.visitLdcInsn( currentLine)
+      mv.visitLdcInsn( tryStart)
       mv.visitVarInsn(Opcodes.ALOAD, exLocal)
       mv.visitMethodInsn(
         Opcodes.INVOKESTATIC, TRACE_LOG_OWNER, "caught",
@@ -110,7 +128,7 @@ class TraceMethodVisitor(
       pushRuntimeClassName()
       mv.visitLdcInsn(methodName)
       mv.visitLdcInsn(sourceFile)
-      mv.visitIntInsn(Opcodes.SIPUSH, entryLine)
+      mv.visitLdcInsn( entryLine)
       mv.visitMethodInsn(
         Opcodes.INVOKESTATIC, TRACE_LOG_OWNER, "enter",
         "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;I)V", false,
@@ -143,7 +161,7 @@ class TraceMethodVisitor(
       pushRuntimeClassName()
       mv.visitLdcInsn(methodName)
       mv.visitLdcInsn(sourceFile)
-      mv.visitIntInsn(Opcodes.SIPUSH, entryLine)
+      mv.visitLdcInsn( entryLine)
       pushStartTime(startMs)
       mv.visitVarInsn(Opcodes.ALOAD, resultLocal)
       mv.visitMethodInsn(
@@ -154,7 +172,7 @@ class TraceMethodVisitor(
       pushRuntimeClassName()
       mv.visitLdcInsn(methodName)
       mv.visitLdcInsn(sourceFile)
-      mv.visitIntInsn(Opcodes.SIPUSH, entryLine)
+      mv.visitLdcInsn( entryLine)
       pushStartTime(startMs)
       mv.visitMethodInsn(
         Opcodes.INVOKESTATIC, TRACE_LOG_OWNER, "exit",
@@ -173,16 +191,37 @@ class TraceMethodVisitor(
       when (opcode) {
         Opcodes.IFEQ, Opcodes.IFNE,
         Opcodes.IFLT, Opcodes.IFGE,
-        Opcodes.IFGT, Opcodes.IFLE,
-        Opcodes.IFNULL, Opcodes.IFNONNULL -> {
+        Opcodes.IFGT, Opcodes.IFLE -> {
           mv.visitInsn(Opcodes.DUP)
-          // DUP'd value -> true if not 0
           val condResult = newLocal(Type.INT_TYPE)
           mv.visitVarInsn(Opcodes.ISTORE, condResult)
           pushRuntimeClassName()
           mv.visitLdcInsn(methodName)
           mv.visitLdcInsn(sourceFile)
-          mv.visitIntInsn(Opcodes.SIPUSH, line)
+          mv.visitLdcInsn( line)
+          mv.visitVarInsn(Opcodes.ILOAD, condResult)
+          mv.visitMethodInsn(
+            Opcodes.INVOKESTATIC, TRACE_LOG_OWNER, "branch",
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;IZ)V", false,
+          )
+        }
+        Opcodes.IFNULL, Opcodes.IFNONNULL -> {
+          mv.visitInsn(Opcodes.DUP)
+          // Convert object reference to boolean: null -> false, non-null -> true
+          val nullLabel = Label()
+          val endLabel = Label()
+          mv.visitJumpInsn(Opcodes.IFNULL, nullLabel)
+          mv.visitInsn(Opcodes.ICONST_1) // non-null -> true
+          mv.visitJumpInsn(Opcodes.GOTO, endLabel)
+          mv.visitLabel(nullLabel)
+          mv.visitInsn(Opcodes.ICONST_0) // null -> false
+          mv.visitLabel(endLabel)
+          val condResult = newLocal(Type.INT_TYPE)
+          mv.visitVarInsn(Opcodes.ISTORE, condResult)
+          pushRuntimeClassName()
+          mv.visitLdcInsn(methodName)
+          mv.visitLdcInsn(sourceFile)
+          mv.visitLdcInsn( line)
           mv.visitVarInsn(Opcodes.ILOAD, condResult)
           mv.visitMethodInsn(
             Opcodes.INVOKESTATIC, TRACE_LOG_OWNER, "branch",
@@ -258,9 +297,8 @@ class TraceMethodVisitor(
     argTypes.forEachIndexed { i, type ->
       mv.visitInsn(Opcodes.DUP)
       mv.visitIntInsn(Opcodes.BIPUSH, i)
-      val paramName = "param$i"  // Source names are unknown without debug info
-      val displayName = maskedName(paramName)
-      mv.visitLdcInsn(displayName)
+      val paramName = realParamNames.getOrNull(i) ?: "param$i"
+      mv.visitLdcInsn(paramName)
       mv.visitInsn(Opcodes.AASTORE)
       slot += type.size
     }
@@ -286,11 +324,6 @@ class TraceMethodVisitor(
     mv.visitVarInsn(Opcodes.ALOAD, valuesLocal)
   }
 
-  private fun maskedName(name: String): String {
-    val lower = name.lowercase()
-    return if (config.maskParams.any { lower.contains(it.lowercase()) }) "***$name" else name
-  }
-
   private fun loadArg(slot: Int, type: Type) {
     when (type.sort) {
       Type.LONG    -> mv.visitVarInsn(Opcodes.LLOAD, slot)
@@ -312,7 +345,7 @@ class TraceMethodVisitor(
     pushRuntimeClassName()
     mv.visitLdcInsn(methodName)
     mv.visitLdcInsn(sourceFile)
-    mv.visitIntInsn(Opcodes.SIPUSH, entryLine)
+    mv.visitLdcInsn( entryLine)
     mv.visitVarInsn(Opcodes.ALOAD, namesLocal)
     mv.visitVarInsn(Opcodes.ALOAD, valuesLocal)
     mv.visitMethodInsn(

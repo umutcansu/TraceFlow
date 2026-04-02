@@ -12,6 +12,13 @@ abstract class TracingExtension @Inject constructor(objects: ObjectFactory) {
   /** true = bytecode injection active, false = nothing is injected */
   val enabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
 
+  /**
+   * Inject tracing bytecode into release builds too (default false).
+   * When true, all methods get trace calls but TraceLog.enabled starts as false.
+   * Use remote config or backend flags to activate tracing in the field.
+   */
+  val releaseEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(false)
+
   val entry: EntryConfig = objects.newInstance(EntryConfig::class.java)
   val exit: ExitConfig = objects.newInstance(ExitConfig::class.java)
   val statements: StatementsConfig = objects.newInstance(StatementsConfig::class.java)
@@ -30,10 +37,14 @@ abstract class TracingExtension @Inject constructor(objects: ObjectFactory) {
 
     /**
      * Parameters whose names contain any of these strings are displayed as `***`.
-     * Example: listOf("password", "token", "pin", "secret")
+     * Kotlin DSL: `maskParams = listOf("password", "token")`
+     * Groovy DSL: `maskParams = ["password", "token"]` or `maskParams "password", "token"`
      */
     val maskParams: ListProperty<String> = objects.listProperty(String::class.java)
       .convention(listOf("password", "token", "pin", "secret", "cvv", "ssn"))
+
+    /** Groovy-friendly varargs setter for maskParams */
+    fun maskParams(vararg params: String) { maskParams.set(params.toList()) }
   }
 
   abstract class ExitConfig @Inject constructor(objects: ObjectFactory) {
@@ -61,9 +72,14 @@ abstract class TracingExtension @Inject constructor(objects: ObjectFactory) {
     /**
      * Classes containing any of these package prefixes will not be traced.
      * Automatically excluded: hilt, dagger, generated, databinding, R$, BuildConfig
+     * Kotlin DSL: `excludePackages = listOf("com.example.generated")`
+     * Groovy DSL: `excludePackages = ["com.example.generated"]` or `excludePackages "com.example.generated"`
      */
     val excludePackages: ListProperty<String> = objects.listProperty(String::class.java)
       .convention(emptyList())
+
+    /** Groovy-friendly varargs setter for excludePackages */
+    fun excludePackages(vararg packages: String) { excludePackages.set(packages.toList()) }
   }
 
   abstract class RemoteConfig @Inject constructor(objects: ObjectFactory) {
