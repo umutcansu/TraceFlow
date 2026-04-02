@@ -97,10 +97,13 @@ traceflow {
 | `statements.logTryCatch` | `false` | Log catch block entries |
 | `statements.logBranches` | `false` | Log if/else branch evaluations |
 | `filter.excludePackages` | `[]` | Package prefixes to exclude from instrumentation |
-| `remote.enabled` | `false` | Enable remote log streaming |
+| `remote.enabled` | `false` | Enable remote log streaming (auto-starts via ContentProvider) |
 | `remote.endpoint` | `""` | HTTP endpoint URL for trace events |
+| `remote.tag` | `""` | Device/session identifier for remote logs |
 | `remote.headers` | `{}` | Custom HTTP headers (e.g. Authorization) |
 | `remote.batchSize` | `10` | Number of events to batch before sending |
+| `remote.flushIntervalMs` | `3000` | Max wait time (ms) before flushing a batch |
+| `remote.logcatEnabled` | `true` | Enable logcat output (set `false` for remote-only in release) |
 
 ## Usage
 
@@ -122,13 +125,15 @@ TraceLog.startRemote(
   headers = mapOf("Authorization" to "Bearer your-token")
 )
 ```
-Or configure via Gradle DSL:
+Or configure via Gradle DSL (auto-starts, no code needed):
 ```kotlin
 traceflow {
   remote {
     enabled = true
     endpoint = "https://your-server.com/traces"
+    tag = "pixel-7-debug"
     headers = mapOf("Authorization" to "Bearer your-token")
+    logcatEnabled = false  // remote-only, no logcat output
   }
 }
 ```
@@ -216,14 +221,34 @@ Your server must implement two endpoints:
 | `/traces` | `POST` | Receives JSON array of trace events |
 | `/traces?since={ts}` | `GET` | Returns events after given timestamp |
 
-Logcat output continues regardless of remote streaming.
+Logcat output continues regardless of remote streaming (unless `logcatEnabled = false`).
 
-## Runtime Toggle
+## Runtime Controls
 
-Disable tracing at runtime without recompilation:
+Control tracing at runtime without recompilation:
 
 ```kotlin
-TraceLog.enabled = false  // disables all trace output
+// Master switch — disables both logcat and remote
+TraceLog.enabled = false
+
+// Independent controls
+TraceLog.logcatEnabled = false  // stop logcat, remote continues
+TraceLog.remoteEnabled = false  // stop remote, logcat continues
+
+// Change device tag at runtime
+TraceLog.deviceTag = "new-session-tag"
+
+// Start/stop remote programmatically
+TraceLog.startRemote("https://your-server.com/traces")
+TraceLog.stopRemote()
+```
+
+All controls work from both Kotlin and Java:
+```java
+TraceLog.enabled = false;
+TraceLog.logcatEnabled = false;
+TraceLog.deviceTag = "my-device";
+TraceLog.startRemote("https://your-server.com/traces");
 ```
 
 ## Built-in Exclusions
@@ -240,7 +265,8 @@ The following are automatically excluded from instrumentation:
 TraceFlow/
 ├── runtime/        → Android library: TraceLog + @NotTrace (Maven Central)
 ├── gradle-plugin/  → Gradle plugin: ASM bytecode injection (Gradle Plugin Portal)
-└── studio-plugin/  → Android Studio plugin: trace viewer (JetBrains Marketplace)
+├── studio-plugin/  → Android Studio plugin: trace viewer (JetBrains Marketplace)
+└── sample-server/  → Ktor sample server for remote log streaming
 ```
 
 ## Requirements

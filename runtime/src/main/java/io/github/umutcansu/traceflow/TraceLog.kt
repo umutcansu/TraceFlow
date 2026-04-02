@@ -22,9 +22,20 @@ object TraceLog {
   private const val TAG_BRANCH = "TraceFlow BRANCH"
   private const val TAG_JSON   = "TraceFlow JSON"
 
-  // Can be disabled at runtime (in prod release builds the plugin doesn't inject anyway)
+  /** Master switch — disables both logcat and remote when false. */
   @JvmField
+  @Volatile
   var enabled: Boolean = true
+
+  /** Controls logcat output independently. Logcat logs are written only when both [enabled] and [logcatEnabled] are true. */
+  @JvmField
+  @Volatile
+  var logcatEnabled: Boolean = true
+
+  /** Controls remote sending independently. Events are sent only when both [enabled] and [remoteEnabled] are true. */
+  @JvmField
+  @Volatile
+  var remoteEnabled: Boolean = true
 
   @Volatile
   private var remoteSender: RemoteSender? = null
@@ -33,9 +44,10 @@ object TraceLog {
   @Volatile
   private var deviceModel: String = ""
 
-  /** User-defined tag for identifying this device/session in remote logs. */
+  /** User-defined tag for identifying this device/session in remote logs. Can be changed at any time. */
+  @JvmField
   @Volatile
-  private var deviceTag: String = ""
+  var deviceTag: String = ""
 
   /**
    * Start sending trace events to a remote HTTP endpoint.
@@ -84,8 +96,7 @@ object TraceLog {
   @JvmStatic
   fun enter(className: String, method: String, file: String, line: Int) {
     if (!enabled) return
-    val src = "$file:$line"
-    Log.d(TAG_ENTER, "[$className] $method()  src:$src")
+    if (logcatEnabled) Log.d(TAG_ENTER, "[$className] $method()  src:$file:$line")
     emitJson("ENTER", className, method, file, line, params = null)
   }
 
@@ -99,9 +110,10 @@ object TraceLog {
     paramValues: Array<Any?>,
   ) {
     if (!enabled) return
-    val src = "$file:$line"
-    val paramStr = buildParamString(paramNames, paramValues)
-    Log.d(TAG_ENTER, "[$className] $method()  src:$src\n  $paramStr")
+    if (logcatEnabled) {
+      val paramStr = buildParamString(paramNames, paramValues)
+      Log.d(TAG_ENTER, "[$className] $method()  src:$file:$line\n  $paramStr")
+    }
     emitJson("ENTER", className, method, file, line, params = buildParamMap(paramNames, paramValues))
   }
 
@@ -111,7 +123,7 @@ object TraceLog {
   fun exit(className: String, method: String, file: String, line: Int, startTimeMs: Long) {
     if (!enabled) return
     val duration = formatDuration(System.currentTimeMillis() - startTimeMs)
-    Log.d(TAG_EXIT, "[$className] $method  [$duration]  src:$file:$line")
+    if (logcatEnabled) Log.d(TAG_EXIT, "[$className] $method  [$duration]  src:$file:$line")
     emitJson("EXIT", className, method, file, line,
       extra = mapOf("durationMs" to (System.currentTimeMillis() - startTimeMs)))
   }
@@ -128,7 +140,7 @@ object TraceLog {
     if (!enabled) return
     val duration = formatDuration(System.currentTimeMillis() - startTimeMs)
     val resultStr = safeToString(result)
-    Log.d(TAG_EXIT, "[$className] $method  [$duration]  src:$file:$line\n  result: $resultStr")
+    if (logcatEnabled) Log.d(TAG_EXIT, "[$className] $method  [$duration]  src:$file:$line\n  result: $resultStr")
     emitJson("EXIT", className, method, file, line,
       extra = mapOf("durationMs" to (System.currentTimeMillis() - startTimeMs), "result" to resultStr))
   }
@@ -147,9 +159,11 @@ object TraceLog {
     if (!enabled) return
     val exType = throwable?.javaClass?.simpleName ?: "Exception"
     val exMsg  = throwable?.message ?: "-"
-    Log.w(TAG_CATCH, "[$className] $method  src:$file:$catchLine\n" +
-      "  try started: line $tryStartLine -> catch: line $catchLine\n" +
-      "  $exType: $exMsg")
+    if (logcatEnabled) {
+      Log.w(TAG_CATCH, "[$className] $method  src:$file:$catchLine\n" +
+        "  try started: line $tryStartLine -> catch: line $catchLine\n" +
+        "  $exType: $exMsg")
+    }
     emitJson("CATCH", className, method, file, catchLine,
       extra = mapOf("tryStartLine" to tryStartLine, "exception" to exType, "message" to exMsg))
   }
@@ -166,7 +180,7 @@ object TraceLog {
   ) {
     if (!enabled) return
     val verdict = if (conditionResult) "TRUE -- entered if block" else "FALSE -- entered else block"
-    Log.v(TAG_BRANCH, "[$className] $method  src:$file:$line\n  condition -> $verdict")
+    if (logcatEnabled) Log.v(TAG_BRANCH, "[$className] $method  src:$file:$line\n  condition -> $verdict")
     emitJson("BRANCH", className, method, file, line,
       extra = mapOf("conditionResult" to conditionResult))
   }
@@ -182,6 +196,7 @@ object TraceLog {
     params: Map<String, String>? = null,
     extra: Map<String, Any?> = emptyMap(),
   ) {
+    if (!logcatEnabled && (!remoteEnabled || remoteSender == null)) return
     try {
       val json = JSONObject().apply {
         put("type", type)
@@ -202,8 +217,8 @@ object TraceLog {
         extra.forEach { (k, v) -> put(k, v) }
       }
       val jsonStr = json.toString()
-      Log.d(TAG_JSON, jsonStr)
-      remoteSender?.enqueue(jsonStr)
+      if (logcatEnabled) Log.d(TAG_JSON, jsonStr)
+      if (remoteEnabled) remoteSender?.enqueue(jsonStr)
     } catch (_: Exception) {
       // JSON creation errors must not interrupt the trace flow
     }

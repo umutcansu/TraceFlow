@@ -73,11 +73,20 @@ abstract class TracingExtension @Inject constructor(objects: ObjectFactory) {
     /** HTTP endpoint URL (e.g. "https://api.example.com/traces") */
     val endpoint: Property<String> = objects.property(String::class.java).convention("")
 
+    /** Device/session tag for identifying this device in remote logs */
+    val tag: Property<String> = objects.property(String::class.java).convention("")
+
     /** Custom HTTP headers (e.g. Authorization) */
     val headers: MapProperty<String, String> = objects.mapProperty(String::class.java, String::class.java)
       .convention(emptyMap())
 
     /** Number of events to batch before sending */
     val batchSize: Property<Int> = objects.property(Int::class.java).convention(10)
+
+    /** Flush interval in milliseconds */
+    val flushIntervalMs: Property<Long> = objects.property(Long::class.java).convention(3000L)
+
+    /** Enable logcat output (default true). Set false to disable logcat while keeping remote active. */
+    val logcatEnabled: Property<Boolean> = objects.property(Boolean::class.java).convention(true)
   }
 }

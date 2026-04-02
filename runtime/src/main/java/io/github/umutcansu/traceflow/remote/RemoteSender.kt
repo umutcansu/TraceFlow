@@ -25,7 +25,14 @@ internal class RemoteSender(
     private val batchSize: Int = 10,
     private val flushIntervalMs: Long = 3000L,
     private val maxRetries: Int = 3,
+    private val maxQueueSize: Int = 1000,
 ) {
+
+    init {
+        if (endpoint.startsWith("http://")) {
+            Log.w("TraceFlow", "WARNING: Remote endpoint uses HTTP (not HTTPS). Trace data will be sent unencrypted. Use HTTPS in production.")
+        }
+    }
 
     private val queue = ConcurrentLinkedQueue<String>()
     private val thread = HandlerThread("TraceFlow-Remote").apply { start() }
@@ -41,6 +48,9 @@ internal class RemoteSender(
     /** Enqueue a JSON string for sending. Non-blocking, safe from any thread. */
     fun enqueue(json: String) {
         if (!running) return
+        if (queue.size >= maxQueueSize) {
+            queue.poll() // drop oldest to prevent unbounded memory growth
+        }
         queue.add(json)
         if (queue.size >= batchSize) {
             handler.post { flush() }
@@ -50,8 +60,13 @@ internal class RemoteSender(
     /** Stop the sender. Attempts one final flush before shutting down. */
     fun stop() {
         running = false
-        handler.post {
-            flush()
+        try {
+            handler.post {
+                flush()
+                thread.quitSafely()
+            }
+        } catch (_: Exception) {
+            // Handler may reject if looper already quit
             thread.quitSafely()
         }
     }
