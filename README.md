@@ -222,6 +222,25 @@ Your server must implement two endpoints:
 | `/traces` | `POST` | Receives JSON array of trace events |
 | `/traces?since={ts}` | `GET` | Returns events after given timestamp |
 
+### Sample Server
+
+A ready-to-use Ktor server is included in `sample-server/`:
+
+```bash
+cd sample-server
+./gradlew run
+```
+
+The server starts on port **4567** by default (override with `PORT` env variable) and provides all required endpoints:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | `GET` | Health check |
+| `/traces` | `POST` | Receive trace events |
+| `/traces?since={ts}` | `GET` | Poll events after timestamp |
+| `/traces` | `DELETE` | Clear all events |
+| `/stats` | `GET` | Event counts by device and type |
+
 Logcat output continues regardless of remote streaming (unless `logcatEnabled = false`).
 
 ### Security
