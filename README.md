@@ -18,6 +18,9 @@ Zero-code ASM bytecode tracing for Android apps. Automatically instruments all m
 - **`@NotTrace` annotation** — Opt-out specific methods or entire classes
 - **Android Studio plugin** — Real-time trace monitoring with filtering, grouping, and source navigation
 - **Remote log streaming** — Send traces to any HTTP endpoint, monitor from Android Studio without USB
+- **DSL auto-start** — Configure remote in `build.gradle.kts`, auto-starts via ContentProvider — no code needed
+- **Independent controls** — Toggle logcat and remote output separately at runtime
+- **HTTPS enforced** — Insecure HTTP blocked by default, `allowInsecure` opt-in for development
 - **Runtime toggle** — `TraceLog.enabled = false` disables all tracing without recompilation
 
 ## Installation
@@ -81,6 +84,17 @@ traceflow {
       "com.example.generated",
       "com.example.databinding",
     )
+  }
+
+  remote {
+    enabled = true
+    endpoint = "https://your-server.com/traces"
+    tag = "my-device"
+    headers = mapOf("Authorization" to "Bearer token123")
+    batchSize = 10
+    flushIntervalMs = 3000
+    logcatEnabled = true
+    allowInsecure = false
   }
 }
 ```
