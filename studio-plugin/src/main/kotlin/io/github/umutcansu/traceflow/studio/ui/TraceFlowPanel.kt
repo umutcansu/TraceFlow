@@ -78,8 +78,8 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private val deviceCombo = JComboBox<String>()
 
   // Remote UI
-  private val endpointField = JTextField(25).apply { toolTipText = "Remote endpoint URL (e.g. https://api.example.com/traces)" }
-  private val headerField = JTextField(15).apply { toolTipText = "Authorization header value (optional)" }
+  private val endpointField = JTextField(20).apply { toolTipText = "Remote endpoint URL (e.g. https://api.example.com/traces)" }
+  private val headerField = JTextField(10).apply { toolTipText = "Authorization header value (optional)" }
 
   // State
   private val statusIcon = JLabel("\u26AA")  // grey circle default
@@ -213,7 +213,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     // -- Source tabs (Logcat / Remote)
     val sourceTabs = JTabbedPane(JTabbedPane.TOP).apply {
-      tabLayoutPolicy = JTabbedPane.SCROLL_TAB_LAYOUT
+      tabLayoutPolicy = JTabbedPane.WRAP_TAB_LAYOUT
     }
 
     // Logcat tab content
@@ -368,22 +368,51 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     filtersDialog = dialog
   }
 
+  private var columnsDialog: JDialog? = null
+
   private fun showColumnsPopup(anchor: JButton) {
-    val popup = JPopupMenu()
-    columnVisible.forEach { (name, cb) ->
-      popup.add(cb)
-    }
-    popup.show(anchor, 0, anchor.height)
+    columnsDialog?.let { it.dispose(); columnsDialog = null; return }
+
+    val panel = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    columnVisible.forEach { (_, cb) -> panel.add(cb) }
+
+    val loc = anchor.locationOnScreen
+    val dialog = JDialog(SwingUtilities.getWindowAncestor(this), "Columns")
+    dialog.isUndecorated = true
+    dialog.contentPane = panel
+    dialog.pack()
+    dialog.setLocation(loc.x, loc.y + anchor.height)
+    dialog.isVisible = true
+    dialog.addWindowListener(object : java.awt.event.WindowAdapter() {
+      override fun windowDeactivated(e: java.awt.event.WindowEvent) {
+        dialog.dispose()
+        columnsDialog = null
+      }
+    })
+    columnsDialog = dialog
   }
+
+  private val savedColumnWidths = mutableMapOf<String, Int>()
 
   private fun applyColumnVisibility() {
     val cm = table.columnModel
     for (i in columnNames.indices) {
       val col = cm.getColumn(i)
-      val visible = columnVisible[columnNames[i]]?.isSelected ?: true
-      col.minWidth = if (visible) 15 else 0
-      col.maxWidth = if (visible) Int.MAX_VALUE else 0
-      col.preferredWidth = if (visible) col.preferredWidth.coerceAtLeast(60) else 0
+      val name = columnNames[i]
+      val visible = columnVisible[name]?.isSelected ?: true
+      if (visible) {
+        val saved = savedColumnWidths[name] ?: col.preferredWidth.coerceAtLeast(60)
+        col.minWidth = 15
+        col.maxWidth = Int.MAX_VALUE
+        col.preferredWidth = saved
+        col.width = saved
+      } else {
+        if (col.width > 0) savedColumnWidths[name] = col.width
+        col.minWidth = 0
+        col.maxWidth = 0
+        col.preferredWidth = 0
+        col.width = 0
+      }
     }
     table.revalidate()
     table.repaint()
