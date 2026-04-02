@@ -33,7 +33,7 @@ Zero-code ASM bytecode tracing for Android apps. Automatically instruments all m
 
 ```kotlin
 dependencies {
-  implementation("io.github.umutcansu:traceflow-runtime:1.0.4")
+  implementation("io.github.umutcansu:traceflow-runtime:1.0.5")
 }
 ```
 </details>
@@ -43,7 +43,7 @@ dependencies {
 
 ```groovy
 dependencies {
-  implementation 'io.github.umutcansu:traceflow-runtime:1.0.4'
+  implementation 'io.github.umutcansu:traceflow-runtime:1.0.5'
 }
 ```
 </details>
@@ -55,7 +55,7 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("io.github.umutcansu.traceflow") version "1.0.4"
+  id("io.github.umutcansu.traceflow") version "1.0.5"
 }
 ```
 </details>
@@ -65,7 +65,7 @@ plugins {
 
 ```groovy
 plugins {
-  id 'io.github.umutcansu.traceflow' version '1.0.4'
+  id 'io.github.umutcansu.traceflow' version '1.0.5'
 }
 ```
 </details>
