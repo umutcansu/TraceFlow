@@ -104,6 +104,7 @@ traceflow {
 | `remote.batchSize` | `10` | Number of events to batch before sending |
 | `remote.flushIntervalMs` | `3000` | Max wait time (ms) before flushing a batch |
 | `remote.logcatEnabled` | `true` | Enable logcat output (set `false` for remote-only in release) |
+| `remote.allowInsecure` | `false` | Allow insecure HTTP endpoints (only HTTPS and localhost permitted by default) |
 
 ## Usage
 
@@ -222,6 +223,28 @@ Your server must implement two endpoints:
 | `/traces?since={ts}` | `GET` | Returns events after given timestamp |
 
 Logcat output continues regardless of remote streaming (unless `logcatEnabled = false`).
+
+### Security
+
+By default, only **HTTPS** and **localhost** (`127.0.0.1`, `localhost`, `10.0.2.2`) endpoints are allowed. Insecure HTTP to remote hosts will fail at both build time and runtime.
+
+For local development with HTTP:
+```kotlin
+// DSL — allow HTTP for development
+traceflow {
+  remote {
+    enabled = true
+    endpoint = "http://192.168.1.80:4567/traces"
+    allowInsecure = true  // required for non-localhost HTTP
+  }
+}
+
+// Runtime — allow HTTP programmatically
+TraceLog.startRemote(
+  endpoint = "http://192.168.1.80:4567/traces",
+  allowInsecure = true,
+)
+```
 
 ## Runtime Controls
 
