@@ -93,6 +93,10 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private val endpointField = JTextField(20).apply { toolTipText = "Remote endpoint URL (e.g. https://api.example.com/traces)" }
   private val headerField = JTextField(10).apply { toolTipText = "Authorization header value (optional)" }
 
+  // Column width persistence
+  private val savedColumnWidths = mutableMapOf<String, Int>()
+  private val savedGroupedColumnWidths = mutableMapOf<String, Int>()
+
   // State
   private val statusIcon = JLabel("\u26AA")  // grey circle default
   private val statusLabel = JLabel("Not connected")
@@ -411,9 +415,6 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     })
     columnsDialog = dialog
   }
-
-  private val savedColumnWidths = mutableMapOf<String, Int>()
-  private val savedGroupedColumnWidths = mutableMapOf<String, Int>()
 
   private fun applyColumnVisibility() {
     val cm = table.columnModel
