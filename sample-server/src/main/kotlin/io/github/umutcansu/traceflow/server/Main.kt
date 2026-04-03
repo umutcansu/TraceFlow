@@ -25,6 +25,7 @@ data class TraceEvent(
     val threadId: Long = 0,
     val threadName: String = "",
     val ts: Long = 0,
+    val deviceManufacturer: String = "",
     val deviceModel: String = "",
     val tag: String = "",
     val params: Map<String, String>? = null,
