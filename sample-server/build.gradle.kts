@@ -15,6 +15,10 @@ dependencies {
     implementation("io.ktor:ktor-serialization-kotlinx-json:3.1.1")
     implementation("io.ktor:ktor-server-cors:3.1.1")
     implementation("ch.qos.logback:logback-classic:1.5.18")
+    implementation("org.jetbrains.exposed:exposed-core:0.57.0")
+    implementation("org.jetbrains.exposed:exposed-jdbc:0.57.0")
+    implementation("org.jetbrains.exposed:exposed-json:0.57.0")
+    implementation("org.xerial:sqlite-jdbc:3.47.2.0")
 }
 
 application {
