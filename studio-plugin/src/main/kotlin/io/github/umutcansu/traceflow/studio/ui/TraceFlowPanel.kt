@@ -135,7 +135,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   // -- Flat table setup -------------------------------------------------------
 
   private fun setupTable() {
-    table.autoResizeMode = JTable.AUTO_RESIZE_OFF  // enable horizontal scroll
+    table.autoResizeMode = JTable.AUTO_RESIZE_LAST_COLUMN
     table.autoCreateRowSorter = true
     table.columnModel.getColumn(0).preferredWidth = 80   // Date
     table.columnModel.getColumn(1).preferredWidth = 90   // Time
@@ -244,7 +244,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   // -- Grouped table setup ----------------------------------------------------
 
   private fun setupGroupedTable() {
-    groupedTable.autoResizeMode = JTable.AUTO_RESIZE_OFF  // enable horizontal scroll
+    groupedTable.autoResizeMode = JTable.AUTO_RESIZE_LAST_COLUMN
     groupedTable.columnModel.getColumn(0).preferredWidth = 500  // Label
     groupedTable.columnModel.getColumn(1).preferredWidth = 90   // Time
     groupedTable.columnModel.getColumn(2).preferredWidth = 60   // Type
