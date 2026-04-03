@@ -54,15 +54,18 @@ object TraceLogParser {
       }
 
     return TraceEvent(
-      type        = type,
-      className   = obj.get("class")?.asString ?: "",
-      method      = obj.get("method")?.asString ?: "",
-      file        = obj.get("file")?.asString ?: "",
-      line        = obj.get("line")?.asInt ?: 0,
-      threadId    = obj.get("threadId")?.asLong ?: 0,
-      threadName  = obj.get("threadName")?.asString ?: "",
-      timestampMs = obj.get("ts")?.asLong ?: System.currentTimeMillis(),
-      extra       = extra,
+      type               = type,
+      className          = obj.get("class")?.asString ?: "",
+      method             = obj.get("method")?.asString ?: "",
+      file               = obj.get("file")?.asString ?: "",
+      line               = obj.get("line")?.asInt ?: 0,
+      threadId           = obj.get("threadId")?.asLong ?: 0,
+      threadName         = obj.get("threadName")?.asString ?: "",
+      timestampMs        = obj.get("ts")?.asLong ?: System.currentTimeMillis(),
+      extra              = extra,
+      deviceManufacturer = obj.get("deviceManufacturer")?.asString ?: "",
+      deviceModel        = obj.get("deviceModel")?.asString ?: "",
+      tag                = obj.get("tag")?.asString ?: "",
     )
   }
 }
