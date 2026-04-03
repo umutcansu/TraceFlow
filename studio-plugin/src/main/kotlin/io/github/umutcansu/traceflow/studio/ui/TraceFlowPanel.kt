@@ -728,8 +728,9 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
       .withFileFilter { it.extension in listOf("json", "txt", "log") }
     val chosen = FileChooser.chooseFile(descriptor, project, null) ?: return
     val file = java.io.File(chosen.path)
-    val count = try {
-      if (file.readText().trimStart().startsWith("[")) {
+    val result = try {
+      val content = file.readText()
+      if (content.trimStart().startsWith("[")) {
         session.importFromFile(file)
       } else {
         session.importFromLogcat(file)
@@ -740,7 +741,9 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     }
     refreshDeviceCombo()
     refreshTable()
-    statusLabel.text = "$count events loaded"
+    val loaded = result.first
+    val skipped = result.second
+    statusLabel.text = if (skipped > 0) "$loaded events loaded ($skipped skipped)" else "$loaded events loaded"
   }
 
   private fun refreshDeviceCombo() {

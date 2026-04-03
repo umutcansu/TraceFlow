@@ -94,20 +94,23 @@ class ExecutionSession {
    * Reads a raw logcat text file line by line, parsing lines with the JSON tag.
    * For files captured via `adb logcat > log.txt`.
    */
-  fun importFromLogcat(file: File): Int {
-    val events = file.readLines()
-      .mapNotNull { io.github.umutcansu.traceflow.studio.logcat.TraceLogParser.parseLine(it) }
+  /** Returns Pair(loaded, skipped) */
+  fun importFromLogcat(file: File): Pair<Int, Int> {
+    val lines = file.readLines()
+    val events = lines.mapNotNull { io.github.umutcansu.traceflow.studio.logcat.TraceLogParser.parseLine(it) }
     _events.clear()
     _events.addAll(events)
-    return events.size
+    val traceLines = lines.count { it.contains("TraceFlow") }
+    return Pair(events.size, (traceLines - events.size).coerceAtLeast(0))
   }
 
-  fun importFromFile(file: File): Int {
+  /** Returns Pair(loaded, skipped) */
+  fun importFromFile(file: File): Pair<Int, Int> {
     val imported = gson.fromJson(file.readText(), Array<TraceEventJson>::class.java)
     val events = imported.mapNotNull { it.toTraceEvent() }
     _events.clear()
     _events.addAll(events)
-    return events.size
+    return Pair(events.size, imported.size - events.size)
   }
 
   // Intermediate model for JSON deserialization
