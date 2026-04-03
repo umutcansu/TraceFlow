@@ -626,6 +626,11 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private fun clearSession() {
     session.clear()
     TraceHighlighter.clearHighlights()
+    // Reset filter combos
+    deviceComboFilter.removeAllItems()
+    deviceComboFilter.addItem("All Devices")
+    manufacturerComboFilter.removeAllItems()
+    manufacturerComboFilter.addItem("All Manufacturers")
     refreshTable()
   }
 
