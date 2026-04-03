@@ -117,7 +117,7 @@ class RemoteLogPoller(
 
     listOf("result", "durationMs", "exception", "message", "tryStartLine", "conditionResult")
       .forEach { key ->
-        obj.get(key)?.let { extra[key] = it.asString }
+        obj.get(key)?.let { extra[key] = it.toString().removeSurrounding("\"") }
       }
 
     return TraceEvent(
