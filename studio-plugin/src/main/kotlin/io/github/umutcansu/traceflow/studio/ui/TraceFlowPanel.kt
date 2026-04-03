@@ -135,7 +135,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   // -- Flat table setup -------------------------------------------------------
 
   private fun setupTable() {
-    table.autoResizeMode = JTable.AUTO_RESIZE_LAST_COLUMN
+    table.autoResizeMode = JTable.AUTO_RESIZE_OFF  // enable horizontal scroll
     table.autoCreateRowSorter = true
     table.columnModel.getColumn(0).preferredWidth = 80   // Date
     table.columnModel.getColumn(1).preferredWidth = 90   // Time
@@ -155,19 +155,96 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     table.addMouseListener(object : java.awt.event.MouseAdapter() {
       override fun mouseClicked(e: java.awt.event.MouseEvent) {
         if (e.clickCount == 2) {
-          val viewRow = table.selectedRow
-          if (viewRow < 0) return
-          val modelRow = table.convertRowIndexToModel(viewRow)
-          tableModel.eventAt(modelRow)?.takeIf { it.line > 0 }?.let { TraceHighlighter.navigateTo(project, it) }
+          navigateToSelectedEvent(table, tableModel)
         }
       }
+
+      override fun mousePressed(e: java.awt.event.MouseEvent) {
+        if (e.isPopupTrigger) showTableContextMenu(e, table, tableModel)
+      }
+
+      override fun mouseReleased(e: java.awt.event.MouseEvent) {
+        if (e.isPopupTrigger) showTableContextMenu(e, table, tableModel)
+      }
     })
+  }
+
+  private fun navigateToSelectedEvent(t: JTable, model: EventTableModel) {
+    val viewRow = t.selectedRow
+    if (viewRow < 0) return
+    val modelRow = t.convertRowIndexToModel(viewRow)
+    val event = model.eventAt(modelRow) ?: return
+    TraceHighlighter.navigateTo(project, event)
+  }
+
+  private fun showTableContextMenu(e: java.awt.event.MouseEvent, t: JTable, model: EventTableModel) {
+    val row = t.rowAtPoint(e.point)
+    if (row >= 0) t.setRowSelectionInterval(row, row)
+    val modelRow = t.convertRowIndexToModel(row)
+    val event = model.eventAt(modelRow) ?: return
+
+    val menu = JPopupMenu()
+    val goToItem = javax.swing.JMenuItem("Go to source: ${event.file}:${event.line}").apply {
+      isEnabled = event.file.isNotEmpty()
+      addActionListener { TraceHighlighter.navigateTo(project, event) }
+    }
+    val copyClassItem = javax.swing.JMenuItem("Copy class name").apply {
+      addActionListener {
+        java.awt.Toolkit.getDefaultToolkit().systemClipboard
+          .setContents(java.awt.datatransfer.StringSelection(event.className), null)
+      }
+    }
+    val copyDetailItem = javax.swing.JMenuItem("Copy detail").apply {
+      addActionListener {
+        java.awt.Toolkit.getDefaultToolkit().systemClipboard
+          .setContents(java.awt.datatransfer.StringSelection(event.detail), null)
+      }
+    }
+    menu.add(goToItem)
+    menu.addSeparator()
+    menu.add(copyClassItem)
+    menu.add(copyDetailItem)
+    menu.show(t, e.x, e.y)
+  }
+
+  private fun showGroupedContextMenu(e: java.awt.event.MouseEvent) {
+    val row = groupedTable.rowAtPoint(e.point)
+    if (row >= 0) groupedTable.setRowSelectionInterval(row, row)
+    val flatRow = groupedModel.rowAt(row) ?: return
+    val event = when (val node = flatRow.node) {
+      is TraceNode.MethodCall -> node.exitEvent ?: node.event
+      is TraceNode.EventLeaf -> node.event
+      else -> null
+    } ?: return
+
+    val menu = JPopupMenu()
+    val goToItem = javax.swing.JMenuItem("Go to source: ${event.file}:${event.line}").apply {
+      isEnabled = event.file.isNotEmpty()
+      addActionListener { TraceHighlighter.navigateTo(project, event) }
+    }
+    val copyLabelItem = javax.swing.JMenuItem("Copy label").apply {
+      addActionListener {
+        java.awt.Toolkit.getDefaultToolkit().systemClipboard
+          .setContents(java.awt.datatransfer.StringSelection(flatRow.node.label), null)
+      }
+    }
+    val copyDetailItem = javax.swing.JMenuItem("Copy detail").apply {
+      addActionListener {
+        java.awt.Toolkit.getDefaultToolkit().systemClipboard
+          .setContents(java.awt.datatransfer.StringSelection(event.detail), null)
+      }
+    }
+    menu.add(goToItem)
+    menu.addSeparator()
+    menu.add(copyLabelItem)
+    menu.add(copyDetailItem)
+    menu.show(groupedTable, e.x, e.y)
   }
 
   // -- Grouped table setup ----------------------------------------------------
 
   private fun setupGroupedTable() {
-    groupedTable.autoResizeMode = JTable.AUTO_RESIZE_LAST_COLUMN
+    groupedTable.autoResizeMode = JTable.AUTO_RESIZE_OFF  // enable horizontal scroll
     groupedTable.columnModel.getColumn(0).preferredWidth = 500  // Label
     groupedTable.columnModel.getColumn(1).preferredWidth = 90   // Time
     groupedTable.columnModel.getColumn(2).preferredWidth = 60   // Type
@@ -179,7 +256,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
 
     groupedTable.columnModel.getColumn(0).cellRenderer = IndentRenderer()
 
-    // Double-click to navigate (for MethodCall and EventLeaf)
+    // Double-click to navigate, single-click to expand/collapse, right-click context menu
     groupedTable.addMouseListener(object : java.awt.event.MouseAdapter() {
       override fun mouseClicked(e: java.awt.event.MouseEvent) {
         if (e.clickCount == 2) {
@@ -191,9 +268,8 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
             is TraceNode.EventLeaf -> node.event
             else -> null
           }
-          event?.takeIf { it.line > 0 }?.let { TraceHighlighter.navigateTo(project, it) }
+          event?.let { TraceHighlighter.navigateTo(project, it) }
         } else if (e.clickCount == 1) {
-          // Single click on group nodes toggles expand/collapse
           val row = groupedTable.selectedRow
           if (row < 0) return
           val flatRow = groupedModel.rowAt(row) ?: return
@@ -203,6 +279,14 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
             refreshTable()
           }
         }
+      }
+
+      override fun mousePressed(e: java.awt.event.MouseEvent) {
+        if (e.isPopupTrigger) showGroupedContextMenu(e)
+      }
+
+      override fun mouseReleased(e: java.awt.event.MouseEvent) {
+        if (e.isPopupTrigger) showGroupedContextMenu(e)
       }
     })
   }
