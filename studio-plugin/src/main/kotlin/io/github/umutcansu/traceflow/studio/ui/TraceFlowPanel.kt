@@ -69,7 +69,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private val columnVisible = columnNames.associateWith { JCheckBox(it, it !in listOf("Manufacturer", "Device", "Tag")) }
 
   // Grouped view column visibility
-  private val groupedColumnNames = listOf("Label", "Time", "Type", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
+  private val groupedColumnNames = listOf("Label", "Date", "Time", "Type", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
   private val groupedColumnVisible = groupedColumnNames.associateWith { JCheckBox(it, it !in listOf("Manufacturer", "Device", "Tag")) }
 
   // Grouped view model
@@ -246,13 +246,14 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private fun setupGroupedTable() {
     groupedTable.autoResizeMode = JTable.AUTO_RESIZE_LAST_COLUMN
     groupedTable.columnModel.getColumn(0).preferredWidth = 500  // Label
-    groupedTable.columnModel.getColumn(1).preferredWidth = 90   // Time
-    groupedTable.columnModel.getColumn(2).preferredWidth = 60   // Type
-    groupedTable.columnModel.getColumn(3).preferredWidth = 140  // File:Line
-    groupedTable.columnModel.getColumn(4).preferredWidth = 90   // Manufacturer
-    groupedTable.columnModel.getColumn(5).preferredWidth = 100  // Device
-    groupedTable.columnModel.getColumn(6).preferredWidth = 80   // Tag
-    groupedTable.columnModel.getColumn(7).preferredWidth = 400  // Detail
+    groupedTable.columnModel.getColumn(1).preferredWidth = 80   // Date
+    groupedTable.columnModel.getColumn(2).preferredWidth = 90   // Time
+    groupedTable.columnModel.getColumn(3).preferredWidth = 60   // Type
+    groupedTable.columnModel.getColumn(4).preferredWidth = 140  // File:Line
+    groupedTable.columnModel.getColumn(5).preferredWidth = 90   // Manufacturer
+    groupedTable.columnModel.getColumn(6).preferredWidth = 100  // Device
+    groupedTable.columnModel.getColumn(7).preferredWidth = 80   // Tag
+    groupedTable.columnModel.getColumn(8).preferredWidth = 400  // Detail
 
     groupedTable.columnModel.getColumn(0).cellRenderer = IndentRenderer()
 
@@ -834,7 +835,7 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   // -- Grouped table model ----------------------------------------------------
 
   inner class GroupedTableModel : AbstractTableModel() {
-    private val columns = listOf("Label", "Time", "Type", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
+    private val columns = listOf("Label", "Date", "Time", "Type", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
     private var flatRows: List<TraceTreeBuilder.FlatRow> = emptyList()
 
     fun update(rows: List<TraceTreeBuilder.FlatRow>) {
@@ -860,13 +861,14 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
       val event = eventOf(node)
       return when (columnIndex) {
         0 -> node.label
-        1 -> event?.timeFormatted ?: ""
-        2 -> event?.type?.label ?: ""
-        3 -> event?.sourceRef ?: ""
-        4 -> event?.deviceManufacturer ?: ""
-        5 -> event?.deviceModel ?: ""
-        6 -> event?.tag ?: ""
-        7 -> event?.detail ?: ""
+        1 -> event?.dateFormatted ?: ""
+        2 -> event?.timeFormatted ?: ""
+        3 -> event?.type?.label ?: ""
+        4 -> event?.sourceRef ?: ""
+        5 -> event?.deviceManufacturer ?: ""
+        6 -> event?.deviceModel ?: ""
+        7 -> event?.tag ?: ""
+        8 -> event?.detail ?: ""
         else -> ""
       }
     }
