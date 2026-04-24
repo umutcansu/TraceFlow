@@ -2,6 +2,7 @@ package io.github.umutcansu.traceflow.studio.remote
 
 import com.google.gson.Gson
 import com.google.gson.JsonArray
+import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.intellij.openapi.Disposable
 import com.intellij.util.io.HttpRequests
@@ -87,7 +88,15 @@ class RemoteLogPoller(
       }
       .readString()
 
-    val array = gson.fromJson(body, JsonArray::class.java) ?: return
+    // Grace-parse: accept both legacy raw-array response (v1 server) and the
+    // envelope { events, nextCursor } introduced in schema v2. This lets a
+    // newer plugin continue to work against older servers during rollout.
+    val parsed: JsonElement = gson.fromJson(body, JsonElement::class.java) ?: return
+    val array: JsonArray = when {
+      parsed.isJsonArray -> parsed.asJsonArray
+      parsed.isJsonObject -> parsed.asJsonObject.getAsJsonArray("events") ?: return
+      else -> return
+    }
 
     for (element in array) {
       val obj = element.asJsonObject ?: continue
@@ -97,6 +106,18 @@ class RemoteLogPoller(
       }
       eventCount++
       onEvent(event)
+    }
+
+    // If the server indicates more pages are available, chain immediately
+    // without waiting for the next pollIntervalMs tick. Bounded by server limit.
+    if (parsed.isJsonObject) {
+      val cursor = parsed.asJsonObject.get("nextCursor")
+      if (cursor != null && !cursor.isJsonNull) {
+        // lastTimestamp was just advanced above; falling through to the next
+        // scheduled poll would also work, but chasing the cursor flushes
+        // backlogs quickly on first connect.
+        poll()
+      }
     }
   }
 

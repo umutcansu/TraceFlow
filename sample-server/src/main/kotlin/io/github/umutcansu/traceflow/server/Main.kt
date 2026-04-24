@@ -63,6 +63,21 @@ data class HealthResponse(val service: String, val events: Int)
 @Serializable
 data class SimpleResponse(val message: String)
 
+@Serializable
+data class TracesPage(val events: List<TraceEvent>, val nextCursor: Long? = null)
+
+data class TraceQuery(
+    val since: Long = 0L,
+    val until: Long? = null,
+    val platform: String? = null,
+    val appId: String? = null,
+    val userId: String? = null,
+    val deviceId: String? = null,
+    val level: String? = null,   // ENTER | EXIT | CATCH | BRANCH
+    val tag: String? = null,
+    val limit: Int = 500,
+)
+
 fun TraceEvent.deviceLabel(): String = when {
     tag.isNotEmpty() && deviceModel.isNotEmpty() -> "$deviceModel ($tag)"
     tag.isNotEmpty() -> tag
@@ -124,6 +139,11 @@ fun initDatabase(dbPath: String) {
         SchemaUtils.create(TraceEvents)
         // Safe migration: adds any missing v2 columns to existing DBs without data loss.
         SchemaUtils.createMissingTablesAndColumns(TraceEvents)
+        // Indexes for filter/pagination performance (SQLite: CREATE INDEX IF NOT EXISTS).
+        exec("CREATE INDEX IF NOT EXISTS idx_events_ts ON trace_events(ts)")
+        exec("CREATE INDEX IF NOT EXISTS idx_events_app_ts ON trace_events(app_id, ts)")
+        exec("CREATE INDEX IF NOT EXISTS idx_events_platform_ts ON trace_events(platform, ts)")
+        exec("CREATE INDEX IF NOT EXISTS idx_events_user_ts ON trace_events(user_id, ts)")
     }
     println("Database initialized: $dbPath")
 }
@@ -166,45 +186,58 @@ fun insertEvents(batch: List<TraceEvent>) {
     }
 }
 
-fun queryEvents(since: Long): List<TraceEvent> = transaction {
-    TraceEvents.selectAll()
-        .where { TraceEvents.ts greater since }
-        .orderBy(TraceEvents.ts)
-        .map { row ->
-            TraceEvent(
-                type = row[TraceEvents.type],
-                `class` = row[TraceEvents.className],
-                method = row[TraceEvents.method],
-                file = row[TraceEvents.file],
-                line = row[TraceEvents.line],
-                threadId = row[TraceEvents.threadId],
-                threadName = row[TraceEvents.threadName],
-                ts = row[TraceEvents.ts],
-                deviceManufacturer = row[TraceEvents.deviceManufacturer],
-                deviceModel = row[TraceEvents.deviceModel],
-                tag = row[TraceEvents.tag],
-                params = row[TraceEvents.params]?.let { Json.decodeFromString(it) },
-                result = row[TraceEvents.result],
-                durationMs = row[TraceEvents.durationMs],
-                exception = row[TraceEvents.exception],
-                message = row[TraceEvents.message],
-                tryStartLine = row[TraceEvents.tryStartLine],
-                conditionResult = row[TraceEvents.conditionResult],
-                schemaVersion = row[TraceEvents.schemaVersion],
-                platform = row[TraceEvents.platform],
-                runtime = row[TraceEvents.runtime],
-                appId = row[TraceEvents.appId],
-                appVersion = row[TraceEvents.appVersion],
-                buildNumber = row[TraceEvents.buildNumber],
-                userId = row[TraceEvents.userId],
-                deviceId = row[TraceEvents.deviceId],
-                sessionId = row[TraceEvents.sessionId],
-                stack = row[TraceEvents.stack]?.let { Json.decodeFromString(it) },
-                sourceMapId = row[TraceEvents.sourceMapId],
-                proguardMapId = row[TraceEvents.proguardMapId],
-                isMinified = row[TraceEvents.isMinified],
-            )
-        }
+private fun rowToEvent(row: ResultRow): TraceEvent = TraceEvent(
+    type = row[TraceEvents.type],
+    `class` = row[TraceEvents.className],
+    method = row[TraceEvents.method],
+    file = row[TraceEvents.file],
+    line = row[TraceEvents.line],
+    threadId = row[TraceEvents.threadId],
+    threadName = row[TraceEvents.threadName],
+    ts = row[TraceEvents.ts],
+    deviceManufacturer = row[TraceEvents.deviceManufacturer],
+    deviceModel = row[TraceEvents.deviceModel],
+    tag = row[TraceEvents.tag],
+    params = row[TraceEvents.params]?.let { Json.decodeFromString(it) },
+    result = row[TraceEvents.result],
+    durationMs = row[TraceEvents.durationMs],
+    exception = row[TraceEvents.exception],
+    message = row[TraceEvents.message],
+    tryStartLine = row[TraceEvents.tryStartLine],
+    conditionResult = row[TraceEvents.conditionResult],
+    schemaVersion = row[TraceEvents.schemaVersion],
+    platform = row[TraceEvents.platform],
+    runtime = row[TraceEvents.runtime],
+    appId = row[TraceEvents.appId],
+    appVersion = row[TraceEvents.appVersion],
+    buildNumber = row[TraceEvents.buildNumber],
+    userId = row[TraceEvents.userId],
+    deviceId = row[TraceEvents.deviceId],
+    sessionId = row[TraceEvents.sessionId],
+    stack = row[TraceEvents.stack]?.let { Json.decodeFromString(it) },
+    sourceMapId = row[TraceEvents.sourceMapId],
+    proguardMapId = row[TraceEvents.proguardMapId],
+    isMinified = row[TraceEvents.isMinified],
+)
+
+fun queryEvents(q: TraceQuery): TracesPage = transaction {
+    val limit = q.limit.coerceIn(1, 5000)
+    var query = TraceEvents.selectAll().where { TraceEvents.ts greater q.since }
+    q.until?.let    { v -> query = query.andWhere { TraceEvents.ts lessEq v } }
+    q.platform?.let { v -> query = query.andWhere { TraceEvents.platform eq v } }
+    q.appId?.let    { v -> query = query.andWhere { TraceEvents.appId eq v } }
+    q.userId?.let   { v -> query = query.andWhere { TraceEvents.userId eq v } }
+    q.deviceId?.let { v -> query = query.andWhere { TraceEvents.deviceId eq v } }
+    q.level?.let    { v -> query = query.andWhere { TraceEvents.type eq v } }
+    q.tag?.let      { v -> query = query.andWhere { TraceEvents.tag eq v } }
+
+    val rows = query.orderBy(TraceEvents.ts)
+        .limit(limit + 1)   // probe for "hasMore"
+        .map(::rowToEvent)
+
+    val hasMore = rows.size > limit
+    val page = if (hasMore) rows.take(limit) else rows
+    TracesPage(events = page, nextCursor = if (hasMore) page.last().ts else null)
 }
 
 fun countEvents(): Int = transaction {
@@ -294,11 +327,23 @@ fun main() {
                 call.respond(HttpStatusCode.OK, SimpleResponse("received ${batch.size} events"))
             }
 
-            // GET /traces?since={ts} — return events after timestamp
+            // GET /traces — return page of events with filter + pagination
+            //   Query params: since, until, platform, appId, userId, deviceId, level, tag, limit
+            //   Response: { events: [...], nextCursor: <ts or null> }
             get("/traces") {
-                val since = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
-                val filtered = queryEvents(since)
-                call.respond(filtered)
+                val p = call.request.queryParameters
+                val q = TraceQuery(
+                    since    = p["since"]?.toLongOrNull() ?: 0L,
+                    until    = p["until"]?.toLongOrNull(),
+                    platform = p["platform"],
+                    appId    = p["appId"],
+                    userId   = p["userId"],
+                    deviceId = p["deviceId"],
+                    level    = p["level"],
+                    tag      = p["tag"],
+                    limit    = p["limit"]?.toIntOrNull() ?: 500,
+                )
+                call.respond(queryEvents(q))
             }
 
             // GET /stats — overview
