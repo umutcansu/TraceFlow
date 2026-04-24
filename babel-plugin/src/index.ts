@@ -20,6 +20,7 @@ import { resolveOptions } from "./options";
 import { shouldSkipFile } from "./helpers/skip";
 import { TFState } from "./helpers/state";
 import { functionDeclarationVisitor } from "./visitors/function-declaration";
+import { functionExpressionVisitor } from "./visitors/function-expression";
 
 export type { TraceFlowPluginOptions, ResolvedOptions } from "./options";
 
@@ -64,6 +65,7 @@ export default function traceflowBabelPlugin(): PluginObj<TFState> {
       // top-level visitor object. Each later stage adds its own visitor
       // export and spreads it the same way, so this list grows linearly.
       ...functionDeclarationVisitor,
+      ...functionExpressionVisitor,
     },
   };
 }

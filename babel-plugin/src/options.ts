@@ -39,6 +39,15 @@ export interface TraceFlowPluginOptions {
    * production builds typically want zero tracing overhead.
    */
   enabled?: boolean;
+
+  /**
+   * Stage 3+: when true, arrow / function-expression nodes that have no
+   * derivable name (e.g. inline callbacks like `arr.map(x => x*2)`) are still
+   * wrapped, with a synthetic `<anonymous>:<line>` method name.
+   *
+   * Defaults to `false` so casual callbacks don't pollute traces.
+   */
+  instrumentAnonymous?: boolean;
 }
 
 /**
@@ -50,6 +59,7 @@ export interface ResolvedOptions {
   excludePatterns: RegExp[];
   traceArguments: boolean;
   enabled: boolean;
+  instrumentAnonymous: boolean;
 }
 
 /** Default runtime package name — kept as a constant so it appears once. */
@@ -133,5 +143,23 @@ export function resolveOptions(raw: unknown): ResolvedOptions {
     enabled = input.enabled;
   }
 
-  return { runtimeImport, excludePatterns, traceArguments, enabled };
+  // ---- instrumentAnonymous ------------------------------------------------
+  let instrumentAnonymous = false;
+  if (input.instrumentAnonymous !== undefined) {
+    if (typeof input.instrumentAnonymous !== "boolean") {
+      throw new TypeError(
+        `[traceflow] option "instrumentAnonymous" must be a boolean, ` +
+          `got ${typeof input.instrumentAnonymous}`,
+      );
+    }
+    instrumentAnonymous = input.instrumentAnonymous;
+  }
+
+  return {
+    runtimeImport,
+    excludePatterns,
+    traceArguments,
+    enabled,
+    instrumentAnonymous,
+  };
 }

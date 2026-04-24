@@ -31,7 +31,11 @@ import * as t from "@babel/types";
 export function methodNameFor(path: NodePath<t.Function>): string {
   const node = path.node;
 
-  // FunctionDeclaration / FunctionExpression both have an optional `id`.
+  // FunctionDeclaration / FunctionExpression both have an optional `id`. The
+  // node's own `id` is the most specific name source — for a named function
+  // expression `const handler = function clicked() {}` it should win over the
+  // surrounding `VariableDeclarator`'s `handler` binding, since `clicked` is
+  // what the function self-references and what shows up in stack traces.
   if (
     (t.isFunctionDeclaration(node) || t.isFunctionExpression(node)) &&
     node.id &&
@@ -40,7 +44,73 @@ export function methodNameFor(path: NodePath<t.Function>): string {
     return node.id.name;
   }
 
-  return "<anonymous>";
+  // For unnamed FunctionExpression / ArrowFunctionExpression, look upward at
+  // the parent node to see if the function is being assigned/bound to a name.
+  if (t.isFunctionExpression(node) || t.isArrowFunctionExpression(node)) {
+    const parent = path.parent;
+
+    // const fn = () => ... ;  /  let fn = function () {};
+    if (t.isVariableDeclarator(parent) && t.isIdentifier(parent.id)) {
+      return parent.id.name;
+    }
+
+    // module.exports.fn = () => ...   or   exports.fn = () => ...
+    // also plain `fn = () => ...` with an Identifier LHS.
+    if (t.isAssignmentExpression(parent) && parent.right === node) {
+      const lhsName = nameFromAssignmentLHS(parent.left);
+      if (lhsName !== null) return lhsName;
+    }
+
+    // const obj = { fn: () => ... }   /   { "fn": () => ... }   /   { [k]: () => ... }
+    if (t.isObjectProperty(parent) && parent.value === node) {
+      if (parent.computed) return "<computed>";
+      if (t.isIdentifier(parent.key)) return parent.key.name;
+      if (t.isStringLiteral(parent.key)) return parent.key.value;
+      return "<computed>";
+    }
+  }
+
+  // Anonymous fallback — use the source line so traces stay distinguishable.
+  const line = node.loc?.start.line ?? 0;
+  return `<anonymous>:${line}`;
+}
+
+/**
+ * Predicate used by visitors to decide whether a name is "real" enough to
+ * justify wrapping. Anonymous fallbacks all start with `<anonymous>` so a
+ * single prefix check is sufficient. The `instrumentAnonymous` opt overrides
+ * this in the visitor.
+ */
+export function isWrappableNamed(name: string): boolean {
+  return !name.startsWith("<anonymous>");
+}
+
+/**
+ * Internal: extract a usable name from the LHS of an `AssignmentExpression`.
+ *
+ *  - `Identifier` → its `name`.
+ *  - `MemberExpression` (non-computed) → the deepest property identifier name.
+ *    For `module.exports.fn = ...` this is `"fn"`.
+ *  - `MemberExpression` (computed) → the StringLiteral value if present, else
+ *    the placeholder `<computed>`.
+ *
+ * Returns `null` when the LHS shape is something we don't handle (e.g.
+ * destructuring patterns), so the caller can fall through to the
+ * `<anonymous>:<line>` branch.
+ */
+function nameFromAssignmentLHS(lhs: t.LVal | t.OptionalMemberExpression): string | null {
+  if (t.isIdentifier(lhs)) return lhs.name;
+
+  if (t.isMemberExpression(lhs) || t.isOptionalMemberExpression(lhs)) {
+    if (lhs.computed) {
+      if (t.isStringLiteral(lhs.property)) return lhs.property.value;
+      return "<computed>";
+    }
+    if (t.isIdentifier(lhs.property)) return lhs.property.name;
+    return "<computed>";
+  }
+
+  return null;
 }
 
 /**
