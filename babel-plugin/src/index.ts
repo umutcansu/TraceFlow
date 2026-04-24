@@ -19,6 +19,7 @@ import * as path from "node:path";
 import { resolveOptions } from "./options";
 import { shouldSkipFile } from "./helpers/skip";
 import { TFState } from "./helpers/state";
+import { functionDeclarationVisitor } from "./visitors/function-declaration";
 
 export type { TraceFlowPluginOptions, ResolvedOptions } from "./options";
 
@@ -53,14 +54,16 @@ export default function traceflowBabelPlugin(): PluginObj<TFState> {
       Program: {
         enter(_programPath: NodePath<t.Program>, state: TFState) {
           if (state.tfSkip) return;
-          // Stage 1: the program enter handler exists so that future stages
-          // can hook in without changing the plugin's overall shape, but it
-          // performs no transformations. Stage 2 will register a
-          // FunctionDeclaration visitor and call `ensureRuntimeImports` from
-          // there — lazily, so files with no wrappable functions remain
-          // untouched.
+          // Stage 2: wrappable-function visitors (registered below via
+          // spread) handle the actual instrumentation. The Program enter
+          // hook stays so future stages can attach program-level setup
+          // without changing the plugin's overall shape.
         },
       },
+      // Spread merges visitor keys (`FunctionDeclaration`, etc.) into the
+      // top-level visitor object. Each later stage adds its own visitor
+      // export and spreads it the same way, so this list grows linearly.
+      ...functionDeclarationVisitor,
     },
   };
 }
