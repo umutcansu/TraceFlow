@@ -38,6 +38,20 @@ data class TraceEvent(
     val message: String? = null,
     val tryStartLine: Int? = null,
     val conditionResult: Boolean? = null,
+    // -- Schema v2 optional fields (all nullable; omitted by v1 clients) --
+    val schemaVersion: Int? = null,
+    val platform: String? = null,       // android-jvm | react-native | ios-swift | web-js
+    val runtime: String? = null,        // e.g. "jvm-17", "hermes-0.12.0"
+    val appId: String? = null,
+    val appVersion: String? = null,
+    val buildNumber: String? = null,
+    val userId: String? = null,
+    val deviceId: String? = null,       // anonymous UUID, persisted client-side
+    val sessionId: String? = null,
+    val stack: List<String>? = null,    // structured stack (JS exceptions)
+    val sourceMapId: String? = null,    // JS bundle hash for stack demap
+    val proguardMapId: String? = null,  // Android R8/ProGuard mapping id
+    val isMinified: Boolean? = null,
 )
 
 @Serializable
@@ -79,6 +93,21 @@ object TraceEvents : Table("trace_events") {
     val tryStartLine = integer("try_start_line").nullable()
     val conditionResult = bool("condition_result").nullable()
 
+    // -- Schema v2 columns (nullable; v1 clients leave empty) --
+    val schemaVersion = integer("schema_version").nullable()
+    val platform = varchar("platform", 32).nullable()
+    val runtime = varchar("runtime", 64).nullable()
+    val appId = varchar("app_id", 200).nullable()
+    val appVersion = varchar("app_version", 64).nullable()
+    val buildNumber = varchar("build_number", 64).nullable()
+    val userId = varchar("user_id", 200).nullable()
+    val deviceId = varchar("device_id", 64).nullable()
+    val sessionId = varchar("session_id", 64).nullable()
+    val stack = text("stack").nullable()              // serialized JSON array of frames
+    val sourceMapId = varchar("source_map_id", 128).nullable()
+    val proguardMapId = varchar("proguard_map_id", 128).nullable()
+    val isMinified = bool("is_minified").nullable()
+
     override val primaryKey = PrimaryKey(id)
 }
 
@@ -93,6 +122,8 @@ fun initDatabase(dbPath: String) {
     Database.connect("jdbc:sqlite:$dbPath", driver = "org.sqlite.JDBC")
     transaction {
         SchemaUtils.create(TraceEvents)
+        // Safe migration: adds any missing v2 columns to existing DBs without data loss.
+        SchemaUtils.createMissingTablesAndColumns(TraceEvents)
     }
     println("Database initialized: $dbPath")
 }
@@ -118,6 +149,19 @@ fun insertEvents(batch: List<TraceEvent>) {
             this[TraceEvents.message] = event.message
             this[TraceEvents.tryStartLine] = event.tryStartLine
             this[TraceEvents.conditionResult] = event.conditionResult
+            this[TraceEvents.schemaVersion] = event.schemaVersion
+            this[TraceEvents.platform] = event.platform
+            this[TraceEvents.runtime] = event.runtime
+            this[TraceEvents.appId] = event.appId
+            this[TraceEvents.appVersion] = event.appVersion
+            this[TraceEvents.buildNumber] = event.buildNumber
+            this[TraceEvents.userId] = event.userId
+            this[TraceEvents.deviceId] = event.deviceId
+            this[TraceEvents.sessionId] = event.sessionId
+            this[TraceEvents.stack] = event.stack?.let { Json.encodeToString(it) }
+            this[TraceEvents.sourceMapId] = event.sourceMapId
+            this[TraceEvents.proguardMapId] = event.proguardMapId
+            this[TraceEvents.isMinified] = event.isMinified
         }
     }
 }
@@ -146,6 +190,19 @@ fun queryEvents(since: Long): List<TraceEvent> = transaction {
                 message = row[TraceEvents.message],
                 tryStartLine = row[TraceEvents.tryStartLine],
                 conditionResult = row[TraceEvents.conditionResult],
+                schemaVersion = row[TraceEvents.schemaVersion],
+                platform = row[TraceEvents.platform],
+                runtime = row[TraceEvents.runtime],
+                appId = row[TraceEvents.appId],
+                appVersion = row[TraceEvents.appVersion],
+                buildNumber = row[TraceEvents.buildNumber],
+                userId = row[TraceEvents.userId],
+                deviceId = row[TraceEvents.deviceId],
+                sessionId = row[TraceEvents.sessionId],
+                stack = row[TraceEvents.stack]?.let { Json.decodeFromString(it) },
+                sourceMapId = row[TraceEvents.sourceMapId],
+                proguardMapId = row[TraceEvents.proguardMapId],
+                isMinified = row[TraceEvents.isMinified],
             )
         }
 }
