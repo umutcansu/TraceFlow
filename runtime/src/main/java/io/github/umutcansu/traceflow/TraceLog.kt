@@ -83,12 +83,13 @@ object TraceLog {
     batchSize: Int = 10,
     flushIntervalMs: Long = 3000L,
     allowInsecure: Boolean = false,
+    compress: Boolean = true,
   ) {
     remoteSender?.stop()
     deviceModel = Build.MODEL
     deviceManufacturer = Build.MANUFACTURER
     deviceTag = tag
-    remoteSender = RemoteSender(endpoint, headers, batchSize, flushIntervalMs, allowInsecure = allowInsecure)
+    remoteSender = RemoteSender(endpoint, headers, batchSize, flushIntervalMs, allowInsecure = allowInsecure, compress = compress)
   }
 
   /** Stop remote sending. Pending events are flushed before shutdown. */

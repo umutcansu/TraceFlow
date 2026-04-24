@@ -5,8 +5,11 @@ import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.ktor.server.plugins.compression.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
+import io.ktor.utils.io.jvm.javaio.*
+import java.util.zip.GZIPInputStream
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
@@ -201,6 +204,10 @@ fun main() {
     initDatabase(dbPath)
 
     embeddedServer(Netty, port = port) {
+        install(Compression) {
+            gzip()
+            deflate()
+        }
         install(ContentNegotiation) {
             json(json)
         }
@@ -215,7 +222,15 @@ fun main() {
         routing {
             // POST /traces — receive batch of events from devices
             post("/traces") {
-                val batch = call.receive<List<TraceEvent>>()
+                val encoding = call.request.headers["Content-Encoding"].orEmpty()
+                val batch: List<TraceEvent> = if (encoding.contains("gzip", ignoreCase = true)) {
+                    val text = GZIPInputStream(call.receiveStream())
+                        .bufferedReader(Charsets.UTF_8)
+                        .use { it.readText() }
+                    json.decodeFromString(text)
+                } else {
+                    call.receive()
+                }
                 insertEvents(batch)
                 val devices = batch.map { it.tag.ifEmpty { it.deviceModel } }.distinct()
                 println("[+] Received ${batch.size} events from: ${devices.joinToString()}")

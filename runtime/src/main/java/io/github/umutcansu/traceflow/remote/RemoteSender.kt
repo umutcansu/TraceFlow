@@ -8,6 +8,7 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.zip.GZIPOutputStream
 
 /**
  * Sends trace events to a remote HTTP endpoint in batches.
@@ -27,6 +28,7 @@ internal class RemoteSender(
     private val maxRetries: Int = 3,
     private val maxQueueSize: Int = 1000,
     private val allowInsecure: Boolean = false,
+    private val compress: Boolean = true,
 ) {
 
     init {
@@ -129,10 +131,19 @@ internal class RemoteSender(
             conn.connectTimeout = 5000
             conn.readTimeout = 5000
             conn.setRequestProperty("Content-Type", "application/json")
+            if (compress) {
+                conn.setRequestProperty("Content-Encoding", "gzip")
+            }
             for ((key, value) in headers) {
                 conn.setRequestProperty(key, value)
             }
-            OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
+            if (compress) {
+                GZIPOutputStream(conn.outputStream).use { gz ->
+                    OutputStreamWriter(gz, Charsets.UTF_8).use { it.write(body) }
+                }
+            } else {
+                OutputStreamWriter(conn.outputStream, Charsets.UTF_8).use { it.write(body) }
+            }
             val code = conn.responseCode
             if (code !in 200..299) {
                 throw RuntimeException("HTTP $code")
