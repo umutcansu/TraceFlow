@@ -1,0 +1,54 @@
+{
+  "name": "@umutcansu/traceflow-babel-plugin",
+  "version": "0.0.1",
+  "description": "Babel plugin that auto-instruments JavaScript / TypeScript functions with TraceFlow ENTER/EXIT/CATCH calls. Companion to @umutcansu/traceflow-runtime.",
+  "keywords": [
+    "traceflow",
+    "babel-plugin",
+    "instrumentation",
+    "tracing",
+    "react-native"
+  ],
+  "license": "MIT",
+  "author": "Umut Can Su",
+  "homepage": "https://github.com/umutcansu/TraceFlow",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/umutcansu/TraceFlow.git",
+    "directory": "babel-plugin"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean --target es2020",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@babel/core": "^7.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@types/babel__core": "^7.20.0",
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.5"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
