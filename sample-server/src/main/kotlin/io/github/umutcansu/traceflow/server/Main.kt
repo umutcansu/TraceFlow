@@ -384,13 +384,27 @@ fun main() {
                     post("/traces") {
                         if (!call.requireIngestToken()) return@post
                         val encoding = call.request.headers["Content-Encoding"].orEmpty()
-                        val batch: List<TraceEvent> = if (encoding.contains("gzip", ignoreCase = true)) {
-                            val text = GZIPInputStream(call.receiveStream())
-                                .bufferedReader(Charsets.UTF_8)
-                                .use { it.readText() }
+                        val batch: List<TraceEvent> = try {
+                            // Cap the raw stream first so a large pre-gzip body can't
+                            // exhaust memory before the decoder even starts.
+                            val raw = SizeLimitedInputStream(
+                                call.receiveStream(), MAX_COMPRESSED_BYTES, "compressed body"
+                            )
+                            val textStream = if (encoding.contains("gzip", ignoreCase = true)) {
+                                // And a second cap on the decompressed side defeats
+                                // zip-bomb ratios where a tiny gzip expands to gigabytes.
+                                SizeLimitedInputStream(
+                                    GZIPInputStream(raw), MAX_DECOMPRESSED_BYTES, "decompressed body"
+                                )
+                            } else {
+                                raw
+                            }
+                            val text = textStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                             json.decodeFromString(text)
-                        } else {
-                            call.receive()
+                        } catch (e: PayloadTooLargeException) {
+                            println("[!] Rejected oversize request: ${e.message}")
+                            call.respond(HttpStatusCode.PayloadTooLarge, SimpleResponse(e.message ?: "payload too large"))
+                            return@post
                         }
                         insertEvents(batch)
                         val devices = batch.map { it.tag.ifEmpty { it.deviceModel } }.distinct()

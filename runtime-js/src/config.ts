@@ -1,3 +1,4 @@
+import { DEFAULT_MESSAGE_MASK_PATTERNS } from "./masking.js";
 import type { Platform } from "./types.js";
 
 /**
@@ -35,6 +36,13 @@ export interface TraceFlowConfig {
 
   /** PII-mask regex patterns applied to `params` keys. */
   maskPatterns?: RegExp[];
+
+  /**
+   * Regex patterns applied to free-form strings (exception message, stack
+   * frames, result) before shipping. Defaults scrub obvious secret shapes
+   * like `Bearer <token>`, `password=...`, and JWTs. Pass `[]` to disable.
+   */
+  maskMessagePatterns?: RegExp[];
 
   /**
    * When true, failed posts are kept in-memory and retried on the next flush.
@@ -83,6 +91,7 @@ export function resolveConfig(cfg: TraceFlowConfig): ResolvedConfig {
     maxBufferSize: cfg.maxBufferSize ?? 1000,
     compress: cfg.compress ?? true,
     maskPatterns: cfg.maskPatterns ?? DEFAULT_MASK_PATTERNS,
+    maskMessagePatterns: cfg.maskMessagePatterns ?? DEFAULT_MESSAGE_MASK_PATTERNS,
     retryOnError: cfg.retryOnError ?? true,
   };
 }

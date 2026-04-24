@@ -5,7 +5,7 @@ import { RingBuffer } from "./buffer.js";
 import { resolveConfig } from "./config.js";
 import { newSessionId, resolveDeviceId } from "./deviceId.js";
 import { installGlobalHandlers } from "./handlers.js";
-import { maskParams } from "./masking.js";
+import { maskParams, maskString, maskStringArray } from "./masking.js";
 import { detectRuntime } from "./platform.js";
 import { Sender } from "./sender.js";
 
@@ -85,13 +85,14 @@ export function initTraceFlow(cfg: TraceFlowConfig): TraceFlowClient {
     buffer.push({ ...baseFields(), ...partial } as TraceEvent);
   };
 
+  const mp = resolved.maskMessagePatterns;
   const teardownHandlers = installGlobalHandlers((err, ctx) => {
     const e = asError(err);
     push({
       type: "CATCH",
-      exception: e.name,
-      message: e.message,
-      stack: splitStack(e.stack),
+      exception: maskString(e.name, mp),
+      message: maskString(e.message, mp),
+      stack: maskStringArray(splitStack(e.stack), mp),
       class: "GlobalHandler",
       method: ctx?.isFatal ? "fatal" : "unhandled",
       file: "",
@@ -106,11 +107,12 @@ export function initTraceFlow(cfg: TraceFlowConfig): TraceFlowClient {
 
     captureException(err, meta) {
       const e = asError(err);
+      const rawStack = meta?.stack ?? splitStack(e.stack);
       push({
         type: "CATCH",
-        exception: e.name,
-        message: e.message,
-        stack: meta?.stack ?? splitStack(e.stack),
+        exception: maskString(e.name, mp),
+        message: maskString(e.message, mp),
+        stack: maskStringArray(rawStack, mp),
         class: "captureException",
         method: meta?.isFatal ? "fatal" : "manual",
         file: "",
@@ -154,7 +156,7 @@ export function initTraceFlow(cfg: TraceFlowConfig): TraceFlowClient {
         type: "EXIT",
         class: className,
         method,
-        result: result == null ? undefined : String(result),
+        result: result == null ? undefined : maskString(String(result), mp),
         durationMs,
       });
     },
