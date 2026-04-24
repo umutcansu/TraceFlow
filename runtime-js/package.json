@@ -1,0 +1,47 @@
+{
+  "name": "@umutcansu/traceflow-runtime",
+  "version": "0.1.0",
+  "description": "TraceFlow ingestion runtime for React Native and web JS. Posts schema-v2 trace events to a TraceFlow server.",
+  "keywords": ["traceflow", "tracing", "observability", "react-native", "logging"],
+  "license": "MIT",
+  "author": "Umut Can Su",
+  "homepage": "https://github.com/umutcansu/TraceFlow",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/umutcansu/TraceFlow.git",
+    "directory": "runtime-js"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": ["dist", "README.md"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean --target es2020",
+    "typecheck": "tsc --noEmit",
+    "smoke": "node examples/node/smoke.mjs",
+    "prepublishOnly": "npm run typecheck && npm run build"
+  },
+  "peerDependencies": {
+    "pako": ">=2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "pako": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
