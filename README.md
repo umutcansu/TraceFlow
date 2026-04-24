@@ -3,26 +3,66 @@
 [![Maven Central](https://img.shields.io/maven-central/v/io.github.umutcansu/traceflow-runtime)](https://central.sonatype.com/artifact/io.github.umutcansu/traceflow-runtime)
 [![Gradle Plugin Portal](https://img.shields.io/gradle-plugin-portal/v/io.github.umutcansu.traceflow)](https://plugins.gradle.org/plugin/io.github.umutcansu.traceflow)
 [![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/30959)](https://plugins.jetbrains.com/plugin/30959-traceflow)
+[![npm](https://img.shields.io/npm/v/@umutcansu/traceflow-runtime)](https://www.npmjs.com/package/@umutcansu/traceflow-runtime)
 
-Zero-code ASM bytecode tracing for Android apps. Automatically instruments all methods with entry/exit/catch/branch logging — no manual log statements needed.
+Zero-code ASM bytecode tracing for Android apps — and, as of 2.0, a
+React Native / web JS runtime that posts into the same backend.
+Automatically instruments every method with entry / exit / catch /
+branch logging; no manual log statements needed on Android.
 
 ![TraceFlow Flat View](screenshots/flat-view.png)
 
+## What's new in 2.0
+
+- **Multi-platform ingestion** — `@umutcansu/traceflow-runtime` npm
+  package ships schema-v2 trace events from React Native or web JS
+  into the same TraceFlow server that Android uses. View the merged
+  stream (with per-app / per-platform filters) in the IntelliJ plugin.
+- **Opt-in server auth** — `TRACEFLOW_INGEST_TOKEN` gates ingest on a
+  shared token; `TRACEFLOW_JWT_SECRET` gates admin endpoints on a
+  Bearer JWT. Unset → open (preserves previous behaviour for demos).
+- **Gzip transport** — `Content-Encoding: gzip` request bodies and
+  responses, with a zip-bomb guard on the server (413 after 5 MB
+  compressed / 50 MB decompressed).
+- **GDPR right-to-erasure** — `DELETE /traces?userId=<id>` removes
+  every event for a user.
+- **Rate limits** — IP and token buckets on `POST /traces`.
+- **Plugin v2 UI** — app picker (populated from `GET /apps`), platform
+  and userId filters, new Platform / App columns.
+- Non-breaking Android upgrade: existing `TraceLog.startRemote(...)`
+  keeps working unchanged. Opt in to v2 fields via the new
+  `startRemote(context, ...)` overload.
+
+Full details: [CHANGELOG.md](CHANGELOG.md) and
+[docs/migrate-v1-to-v2.md](docs/migrate-v1-to-v2.md).
+
 ## Features
 
+### Android
 - **Zero-code instrumentation** — ASM bytecode injection at compile time, no source changes required
 - **Method entry/exit** — Parameters, return values, and execution duration
 - **Exception tracking** — Catch blocks with try start line and exception details
 - **Branch tracking** — if/else condition evaluation (optional, verbose)
 - **Sensitive data masking** — Runtime masking of parameters named `password`, `token`, `pin`, `secret`, `cvv`, `ssn`
 - **`@NotTrace` annotation** — Opt-out specific methods or entire classes
-- **Android Studio plugin** — Real-time trace monitoring with manufacturer/device/tag filtering, grouping, and source navigation
-- **Remote log streaming** — Send traces to any HTTP endpoint, monitor from Android Studio without USB
 - **DSL auto-start** — Configure remote in `build.gradle`, auto-starts via ContentProvider — no code needed
 - **Independent controls** — Toggle logcat and remote output separately at runtime
 - **HTTPS enforced** — Insecure HTTP blocked by default, `allowInsecure` opt-in for development
 - **Release tracing** — Optional `releaseEnabled` flag to inject tracing in release builds for field debugging
-- **Multi-device support** — Manufacturer, device model, and tag columns with live filtering
+
+### React Native / web JS (new in 2.0)
+- **Global error capture** — Unhandled exceptions and promise rejections via `ErrorUtils` (RN) or `window.error`/`unhandledrejection` (web)
+- **Manual API** — `captureException(err)`, `trace(name, fn)`, `traceAsync(name, fn)`, `setUserId(id)`
+- **Gzip transport** — `CompressionStream` with optional `pako` fallback
+- **Offline-safe** — Ring buffer with batch retry on failure
+- **PII masking** — Stack frames, messages, and results scrubbed of `password=`, `Bearer …`, JWTs before sending
+- **Device identity** — Persistent anonymous `deviceId` (localStorage / AsyncStorage); fresh `sessionId` per init
+
+### Server + plugin
+- **Android Studio plugin** — Real-time trace monitoring with manufacturer/device/tag/platform/app filtering, grouping, and source navigation
+- **Remote log streaming** — Send traces to any HTTP endpoint, monitor from Android Studio without USB
+- **Multi-device / multi-platform support** — Manufacturer, device model, tag, platform, app, userId columns with live filtering
+- **Schema v2** — `platform`, `appId`, `userId`, `deviceId`, `sessionId`, `stack[]`, and more optional fields for cross-platform stitching
 
 ## Installation
 
@@ -33,7 +73,7 @@ Zero-code ASM bytecode tracing for Android apps. Automatically instruments all m
 
 ```kotlin
 dependencies {
-  implementation("io.github.umutcansu:traceflow-runtime:1.0.10")
+  implementation("io.github.umutcansu:traceflow-runtime:2.0.0")
 }
 ```
 </details>
@@ -43,7 +83,7 @@ dependencies {
 
 ```groovy
 dependencies {
-  implementation 'io.github.umutcansu:traceflow-runtime:1.0.10'
+  implementation 'io.github.umutcansu:traceflow-runtime:2.0.0'
 }
 ```
 </details>
@@ -55,7 +95,7 @@ dependencies {
 
 ```kotlin
 plugins {
-  id("io.github.umutcansu.traceflow") version "1.0.10"
+  id("io.github.umutcansu.traceflow") version "2.0.0"
 }
 ```
 </details>
@@ -65,7 +105,7 @@ plugins {
 
 ```groovy
 plugins {
-  id 'io.github.umutcansu.traceflow' version '1.0.10'
+  id 'io.github.umutcansu.traceflow' version '2.0.0'
 }
 ```
 </details>
@@ -92,6 +132,44 @@ cd TraceFlow/studio-plugin
 ./gradlew buildPlugin
 ```
 The plugin `.zip` will be in `studio-plugin/build/distributions/`. Install via Option B step 2.
+
+### 4. Install the JS runtime (React Native / web, optional)
+
+Only needed if you want RN or browser code to post trace events into
+the same backend. The Android setup above works without it.
+
+```bash
+# Required
+yarn add @umutcansu/traceflow-runtime
+# Optional: gzip fallback for old Hermes / environments without CompressionStream
+yarn add pako
+# Recommended on RN so deviceId persists across app launches
+yarn add @react-native-async-storage/async-storage
+```
+
+Minimal initialisation (add once, e.g. in `App.tsx`):
+
+```ts
+import { initTraceFlow, captureException, trace } from '@umutcansu/traceflow-runtime';
+
+initTraceFlow({
+  endpoint: 'https://traceflow.example.com/traces',
+  appId: 'com.example.myapp',
+  platform: 'react-native',          // or 'web-js'
+  appVersion: '1.0.0',
+  userId: currentUserId,
+  token: process.env.TRACEFLOW_TOKEN, // only when the server enforces it
+});
+
+try { riskyWork(); }
+catch (e) { captureException(e); }
+
+const parsed = trace('parseConfig', () => JSON.parse(raw));
+```
+
+Global errors and unhandled promise rejections are captured
+automatically without additional code. Full API:
+[runtime-js/README.md](runtime-js/README.md).
 
 ## Configuration
 
@@ -529,6 +607,38 @@ The following are automatically excluded from instrumentation:
 - Property getters/setters
 - The TraceFlow runtime itself
 
+## Self-hosting the server
+
+The `sample-server` is a Ktor app that accepts trace events from every
+runtime. Out of the box it binds to port 4567 and stores events in
+SQLite (`traceflow.db`). The new opt-in security controls live behind
+environment variables:
+
+| Variable | Effect when set |
+|---|---|
+| `TRACEFLOW_INGEST_TOKEN` | `POST /traces` requires `X-TraceFlow-Token: <value>` (constant-time comparison) |
+| `TRACEFLOW_JWT_SECRET` | Admin endpoints (`GET /traces`, `/apps`, `/stats`, `DELETE /traces`) require `Authorization: Bearer <jwt>` (HMAC-256) |
+| `TRACEFLOW_JWT_ISSUER` | JWT issuer claim (default `traceflow`) |
+| `TRACEFLOW_JWT_AUDIENCE` | JWT audience claim (default `traceflow-admin`) |
+| `PORT` | Bind port (default `4567`) |
+| `DB_PATH` | SQLite file path (default `traceflow.db`) |
+
+Rate limits: 600 ingest req/min per IP, 10 000 per token (opt-in
+only when a token is configured). Zip-bomb guard: bodies over 5 MB
+compressed or 50 MB after gunzip are rejected with HTTP 413.
+
+Always terminate TLS in front of the server (nginx / Caddy /
+Cloudflare) before exposing it to the public internet — the
+sample-server itself serves plain HTTP on purpose, so that local
+development and behind-VPN deployments stay simple.
+
+### GDPR
+
+`DELETE /traces?userId=<id>` removes every event for a user,
+admin-auth when enabled. See
+[docs/migrate-v1-to-v2.md](docs/migrate-v1-to-v2.md) for full
+operator notes.
+
 ## Architecture
 
 ```
@@ -536,7 +646,9 @@ TraceFlow/
 ├── runtime/        -> Android library: TraceLog + @NotTrace (Maven Central)
 ├── gradle-plugin/  -> Gradle plugin: ASM bytecode injection (Gradle Plugin Portal)
 ├── studio-plugin/  -> Android Studio plugin: trace viewer (JetBrains Marketplace)
-└── sample-server/  -> Ktor sample server for remote log streaming
+├── runtime-js/     -> React Native / web JS runtime (npm)
+├── sample-server/  -> Ktor sample server for remote log streaming
+└── docs/           -> Design docs, v2 migration, product vision
 ```
 
 ## Requirements
