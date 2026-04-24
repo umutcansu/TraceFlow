@@ -5,10 +5,14 @@ import io.ktor.serialization.kotlinx.json.*
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.ktor.server.auth.*
 import io.ktor.server.plugins.compression.*
 import io.ktor.server.plugins.contentnegotiation.*
 import io.ktor.server.plugins.cors.routing.*
+import io.ktor.server.plugins.ratelimit.*
 import io.ktor.utils.io.jvm.javaio.*
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.deleteWhere
 import java.util.zip.GZIPInputStream
 import io.ktor.server.request.*
 import io.ktor.server.response.*
@@ -259,6 +263,14 @@ fun clearEvents(): Int = transaction {
 }
 
 /**
+ * GDPR right-to-erasure (Art. 17): remove every event tied to a userId.
+ * Returns the row count that was deleted so callers can report back.
+ */
+fun deleteByUserId(userId: String): Int = transaction {
+    TraceEvents.deleteWhere { TraceEvents.userId eq userId }
+}
+
+/**
  * Summarizes every app that has sent at least one schema-v2 event
  * (i.e. with a non-null app_id). v1 legacy rows are intentionally
  * excluded so the plugin's app picker only surfaces identifiable apps.
@@ -338,6 +350,11 @@ fun main() {
     println("TraceFlow Sample Server starting on port $port...")
     initDatabase(dbPath)
 
+    // Log the effective auth posture so operators don't wonder why
+    // production deployments are accepting anonymous traffic.
+    println("Auth: ingest=${if (AuthConfig.ingestEnabled) "shared-token" else "open"}, " +
+        "admin=${if (AuthConfig.adminEnabled) "JWT" else "open"}")
+
     embeddedServer(Netty, port = port) {
         install(Compression) {
             gzip()
@@ -353,63 +370,46 @@ fun main() {
             allowMethod(HttpMethod.Delete)
             allowHeader(HttpHeaders.ContentType)
             allowHeader(HttpHeaders.Authorization)
+            allowHeader("X-TraceFlow-Token")
         }
+        installTraceFlowRateLimits()
+        installTraceFlowAuth()
+
         routing {
-            // POST /traces — receive batch of events from devices
-            post("/traces") {
-                val encoding = call.request.headers["Content-Encoding"].orEmpty()
-                val batch: List<TraceEvent> = if (encoding.contains("gzip", ignoreCase = true)) {
-                    val text = GZIPInputStream(call.receiveStream())
-                        .bufferedReader(Charsets.UTF_8)
-                        .use { it.readText() }
-                    json.decodeFromString(text)
-                } else {
-                    call.receive()
+            // POST /traces — ingest. Rate-limited by both IP and token so a
+            // single device can't DoS the server, and a single token can't
+            // overwhelm it either. Wrapping is nested for AND semantics.
+            rateLimit(RateLimitName("ingest-ip")) {
+                rateLimit(RateLimitName("ingest-token")) {
+                    post("/traces") {
+                        if (!call.requireIngestToken()) return@post
+                        val encoding = call.request.headers["Content-Encoding"].orEmpty()
+                        val batch: List<TraceEvent> = if (encoding.contains("gzip", ignoreCase = true)) {
+                            val text = GZIPInputStream(call.receiveStream())
+                                .bufferedReader(Charsets.UTF_8)
+                                .use { it.readText() }
+                            json.decodeFromString(text)
+                        } else {
+                            call.receive()
+                        }
+                        insertEvents(batch)
+                        val devices = batch.map { it.tag.ifEmpty { it.deviceModel } }.distinct()
+                        println("[+] Received ${batch.size} events from: ${devices.joinToString()}")
+                        call.respond(HttpStatusCode.OK, SimpleResponse("received ${batch.size} events"))
+                    }
                 }
-                insertEvents(batch)
-                val devices = batch.map { it.tag.ifEmpty { it.deviceModel } }.distinct()
-                println("[+] Received ${batch.size} events from: ${devices.joinToString()}")
-                call.respond(HttpStatusCode.OK, SimpleResponse("received ${batch.size} events"))
             }
 
-            // GET /traces — return page of events with filter + pagination
-            //   Query params: since, until, platform, appId, userId, deviceId, level, tag, limit
-            //   Response: { events: [...], nextCursor: <ts or null> }
-            get("/traces") {
-                val p = call.request.queryParameters
-                val q = TraceQuery(
-                    since    = p["since"]?.toLongOrNull() ?: 0L,
-                    until    = p["until"]?.toLongOrNull(),
-                    platform = p["platform"],
-                    appId    = p["appId"],
-                    userId   = p["userId"],
-                    deviceId = p["deviceId"],
-                    level    = p["level"],
-                    tag      = p["tag"],
-                    limit    = p["limit"]?.toIntOrNull() ?: 500,
-                )
-                call.respond(queryEvents(q))
+            // Admin routes — JWT-gated when TRACEFLOW_JWT_SECRET is set,
+            // open otherwise. Keeping the route definitions in a shared
+            // block avoids duplicating them in both branches.
+            if (AuthConfig.adminEnabled) {
+                authenticate("admin") { adminRoutes() }
+            } else {
+                adminRoutes()
             }
 
-            // GET /stats — overview
-            get("/stats") {
-                call.respond(statsQuery())
-            }
-
-            // GET /apps — per-app summary (populates plugin app picker).
-            // v1 rows without appId are excluded.
-            get("/apps") {
-                call.respond(listApps())
-            }
-
-            // DELETE /traces — clear all events
-            delete("/traces") {
-                val count = clearEvents()
-                println("[x] Cleared $count events")
-                call.respond(SimpleResponse("cleared $count events"))
-            }
-
-            // GET / — health check
+            // Health check is always open so load-balancers don't need tokens.
             get("/") {
                 call.respond(HealthResponse(
                     service = "TraceFlow Sample Server",
@@ -418,4 +418,44 @@ fun main() {
             }
         }
     }.start(wait = true)
+}
+
+/**
+ * Routes that require admin privileges when TRACEFLOW_JWT_SECRET is set.
+ * `DELETE /traces?userId=<id>` implements GDPR Art. 17 (right-to-erasure);
+ * without the query param it clears everything (useful during dev).
+ */
+private fun Route.adminRoutes() {
+    get("/traces") {
+        val p = call.request.queryParameters
+        val q = TraceQuery(
+            since    = p["since"]?.toLongOrNull() ?: 0L,
+            until    = p["until"]?.toLongOrNull(),
+            platform = p["platform"],
+            appId    = p["appId"],
+            userId   = p["userId"],
+            deviceId = p["deviceId"],
+            level    = p["level"],
+            tag      = p["tag"],
+            limit    = p["limit"]?.toIntOrNull() ?: 500,
+        )
+        call.respond(queryEvents(q))
+    }
+
+    get("/stats") { call.respond(statsQuery()) }
+
+    get("/apps") { call.respond(listApps()) }
+
+    delete("/traces") {
+        val userId = call.request.queryParameters["userId"]
+        if (userId != null) {
+            val deleted = deleteByUserId(userId)
+            println("[x] GDPR delete: removed $deleted events for userId=$userId")
+            call.respond(SimpleResponse("deleted $deleted events for userId=$userId"))
+        } else {
+            val count = clearEvents()
+            println("[x] Cleared $count events")
+            call.respond(SimpleResponse("cleared $count events"))
+        }
+    }
 }
