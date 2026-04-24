@@ -64,7 +64,7 @@ pipeline {
 
   options {
     timestamps()
-    ansiColor('xterm')
+    // ansiColor requires the AnsiColor plugin; enable only if installed.
     disableConcurrentBuilds()
     timeout(time: 20, unit: 'MINUTES')
   }
