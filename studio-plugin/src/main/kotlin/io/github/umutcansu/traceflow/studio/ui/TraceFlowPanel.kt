@@ -64,9 +64,9 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private val fromTimeField = JTextField(16).apply { toolTipText = "From (yyyy-MM-dd HH:mm:ss or HH:mm:ss)" }
   private val toTimeField   = JTextField(16).apply { toolTipText = "To (yyyy-MM-dd HH:mm:ss or HH:mm:ss). Leave empty for no upper bound." }
 
-  // Column visibility
-  private val columnNames = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
-  private val columnVisible = columnNames.associateWith { JCheckBox(it, it !in listOf("Manufacturer", "Device", "Tag")) }
+  // Column visibility — Platform/App hidden by default, same pattern as Manufacturer/Device/Tag
+  private val columnNames = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Platform", "App", "Manufacturer", "Device", "Tag", "Detail")
+  private val columnVisible = columnNames.associateWith { JCheckBox(it, it !in listOf("Platform", "App", "Manufacturer", "Device", "Tag")) }
 
   // Grouped view column visibility
   private val groupedColumnNames = listOf("Label", "Date", "Time", "Type", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
@@ -92,6 +92,18 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   // Remote UI
   private val endpointField = JTextField(20).apply { toolTipText = "Remote endpoint URL (e.g. https://api.example.com/traces)" }
   private val headerField = JTextField(10).apply { toolTipText = "Authorization header value (optional)" }
+
+  // Remote server-side filters (schema v2). Sent as query params on every poll.
+  private val remoteAppCombo = JComboBox<String>().apply {
+    addItem("All Apps")
+    toolTipText = "Filter server-side by appId (populated from GET /apps on connect)"
+  }
+  private val remotePlatformCombo = JComboBox(
+    arrayOf("All Platforms", "android-jvm", "react-native", "ios-swift", "web-js")
+  ).apply { toolTipText = "Filter server-side by platform" }
+  private val remoteUserIdField = JTextField(10).apply {
+    toolTipText = "Filter server-side by userId (optional)"
+  }
 
   // Column width persistence
   private val savedColumnWidths = mutableMapOf<String, Int>()
@@ -143,10 +155,12 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     table.columnModel.getColumn(3).preferredWidth = 180  // Class
     table.columnModel.getColumn(4).preferredWidth = 140  // Method
     table.columnModel.getColumn(5).preferredWidth = 140  // File:Line
-    table.columnModel.getColumn(6).preferredWidth = 90   // Manufacturer
-    table.columnModel.getColumn(7).preferredWidth = 100  // Device
-    table.columnModel.getColumn(8).preferredWidth = 80   // Tag
-    table.columnModel.getColumn(9).preferredWidth = 400  // Detail
+    table.columnModel.getColumn(6).preferredWidth = 70   // Platform
+    table.columnModel.getColumn(7).preferredWidth = 140  // App
+    table.columnModel.getColumn(8).preferredWidth = 90   // Manufacturer
+    table.columnModel.getColumn(9).preferredWidth = 100  // Device
+    table.columnModel.getColumn(10).preferredWidth = 80  // Tag
+    table.columnModel.getColumn(11).preferredWidth = 400 // Detail
 
     // Color the Type column
     table.columnModel.getColumn(2).cellRenderer = TypeColorRenderer()
@@ -342,16 +356,29 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     logcatToolbar.add(stopBtn)
     sourceTabs.addTab("Logcat", logcatToolbar)
 
-    // Remote tab content
-    remoteToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    // Remote tab content — two rows so the v2 filter controls have room.
+    remoteToolbar = JPanel().apply { layout = BoxLayout(this, BoxLayout.Y_AXIS) }
+
+    val remoteRow1 = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
     val connectBtn = JButton("Connect").apply { addActionListener { startRemote() } }
     val disconnectBtn = JButton("Disconnect").apply { addActionListener { stopRemote() } }
-    remoteToolbar.add(JLabel("Endpoint:"))
-    remoteToolbar.add(endpointField)
-    remoteToolbar.add(JLabel("Auth:"))
-    remoteToolbar.add(headerField)
-    remoteToolbar.add(connectBtn)
-    remoteToolbar.add(disconnectBtn)
+    remoteRow1.add(JLabel("Endpoint:"))
+    remoteRow1.add(endpointField)
+    remoteRow1.add(JLabel("Auth:"))
+    remoteRow1.add(headerField)
+    remoteRow1.add(connectBtn)
+    remoteRow1.add(disconnectBtn)
+
+    val remoteRow2 = JPanel(FlowLayout(FlowLayout.LEFT, 4, 2))
+    remoteRow2.add(JLabel("App:"))
+    remoteRow2.add(remoteAppCombo)
+    remoteRow2.add(JLabel("Platform:"))
+    remoteRow2.add(remotePlatformCombo)
+    remoteRow2.add(JLabel("User:"))
+    remoteRow2.add(remoteUserIdField)
+
+    remoteToolbar.add(remoteRow1)
+    remoteToolbar.add(remoteRow2)
     sourceTabs.addTab("Remote", remoteToolbar)
 
     sourceTabs.addChangeListener {
@@ -382,6 +409,13 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     if (auth.isNotEmpty()) {
       headers["Authorization"] = auth
     }
+
+    // Resolve v2 filter selections. "All ..." sentinel values map to null
+    // so the poller omits the query param entirely.
+    val selectedApp = (remoteAppCombo.selectedItem as? String)?.takeUnless { it == "All Apps" }
+    val selectedPlatform = (remotePlatformCombo.selectedItem as? String)?.takeUnless { it == "All Platforms" }
+    val selectedUserId = remoteUserIdField.text.trim().ifEmpty { null }
+
     remotePoller?.stop()
     remotePoller = RemoteLogPoller(
       endpoint = endpoint,
@@ -389,9 +423,40 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
       onEvent = { event -> addEvent(event) },
       onError = { msg -> ApplicationManager.getApplication().invokeLater { setStatus(msg, false) } },
       onConnected = { ApplicationManager.getApplication().invokeLater { setStatus("Remote connected", true) } },
+      platformFilter = selectedPlatform,
+      appIdFilter = selectedApp,
+      userIdFilter = selectedUserId,
     )
     remotePoller?.start()
     setStatus("Connecting...", null)
+
+    // Refresh the app picker from the server in the background; if the server
+    // doesn't implement /apps (older v1 deployments), the list stays empty.
+    refreshRemoteApps(endpoint, headers)
+  }
+
+  /** Loads the app list from GET /apps and repopulates the picker on the EDT. */
+  private fun refreshRemoteApps(endpoint: String, headers: Map<String, String>) {
+    ApplicationManager.getApplication().executeOnPooledThread {
+      val apps = io.github.umutcansu.traceflow.studio.remote.AppsFetcher(endpoint, headers).fetch()
+      ApplicationManager.getApplication().invokeLater {
+        val previouslySelected = remoteAppCombo.selectedItem as? String
+        remoteAppCombo.removeAllItems()
+        remoteAppCombo.addItem("All Apps")
+        apps.sortedByDescending { it.lastSeen }.forEach { app ->
+          remoteAppCombo.addItem(app.appId)
+        }
+        // Preserve selection across refreshes when the appId still exists.
+        if (previouslySelected != null) {
+          for (i in 0 until remoteAppCombo.itemCount) {
+            if (remoteAppCombo.getItemAt(i) == previouslySelected) {
+              remoteAppCombo.selectedIndex = i
+              break
+            }
+          }
+        }
+      }
+    }
   }
 
   private fun stopRemote() {

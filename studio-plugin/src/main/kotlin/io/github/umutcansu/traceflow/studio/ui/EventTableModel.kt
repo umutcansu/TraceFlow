@@ -6,7 +6,7 @@ import javax.swing.table.AbstractTableModel
 
 class EventTableModel : AbstractTableModel() {
 
-  private val columns = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
+  private val columns = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Platform", "App", "Manufacturer", "Device", "Tag", "Detail")
   private var rows: List<TraceEvent> = emptyList()
 
   fun update(events: List<TraceEvent>) {
@@ -29,10 +29,12 @@ class EventTableModel : AbstractTableModel() {
       3 -> event.className
       4 -> event.method
       5 -> event.sourceRef
-      6 -> event.deviceManufacturer
-      7 -> event.deviceModel
-      8 -> event.tag
-      9 -> event.detail
+      6 -> event.platformLabel
+      7 -> event.appId ?: ""
+      8 -> event.deviceManufacturer
+      9 -> event.deviceModel
+      10 -> event.tag
+      11 -> event.detail
       else -> ""
     }
   }
