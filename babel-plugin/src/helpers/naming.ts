@@ -31,6 +31,33 @@ import * as t from "@babel/types";
 export function methodNameFor(path: NodePath<t.Function>): string {
   const node = path.node;
 
+  // Stage 4: ClassMethod / ClassPrivateMethod live inside a class body. The
+  // method-name slot is `${ClassName}.${kindPrefix?}${keyName}`, with kind
+  // prefixes for getters/setters (`get_`, `set_`) and a special-case for the
+  // constructor.
+  if (path.isClassMethod() || path.isClassPrivateMethod()) {
+    const cmPath = path as NodePath<t.ClassMethod | t.ClassPrivateMethod>;
+    const cls = classNameFor(cmPath);
+    const m = cmPath.node;
+    if (m.kind === "constructor") return `${cls}.constructor`;
+    const key = keyNameFor(m.key);
+    if (m.kind === "get") return `${cls}.get_${key}`;
+    if (m.kind === "set") return `${cls}.set_${key}`;
+    return `${cls}.${key}`;
+  }
+
+  // Stage 4: ObjectMethod (the `{ foo() { ... } }` shorthand). Owner is the
+  // enclosing ObjectExpression — we walk one level up from there to look for
+  // an assigning context (VariableDeclarator / AssignmentExpression /
+  // ObjectProperty) for a friendlier label. If no such context exists the
+  // owner is anonymous and we fall back to `<obj>`.
+  if (path.isObjectMethod()) {
+    const om = path.node as t.ObjectMethod;
+    const keyName = keyNameFor(om.key);
+    const owner = objectOwnerNameFor(path as NodePath<t.ObjectMethod>);
+    return `${owner}.${keyName}`;
+  }
+
   // FunctionDeclaration / FunctionExpression both have an optional `id`. The
   // node's own `id` is the most specific name source — for a named function
   // expression `const handler = function clicked() {}` it should win over the
@@ -73,6 +100,86 @@ export function methodNameFor(path: NodePath<t.Function>): string {
   // Anonymous fallback — use the source line so traces stay distinguishable.
   const line = node.loc?.start.line ?? 0;
   return `<anonymous>:${line}`;
+}
+
+/**
+ * Resolve a "class name" tag for a ClassMethod or ClassPrivateMethod path.
+ *
+ * Order:
+ *  1. Owning class's own `id` (`class Foo {}`).
+ *  2. Surrounding `VariableDeclarator` for anonymous `class` expressions
+ *     (`const Helper = class { ... }`).
+ *  3. `<AnonClass>` placeholder when neither is available — bare class
+ *     expressions like `(class { ping() {} })`.
+ */
+function classNameFor(
+  path: NodePath<t.ClassMethod | t.ClassPrivateMethod>,
+): string {
+  const cls = path.findParent(
+    (p) => p.isClassDeclaration() || p.isClassExpression(),
+  );
+  if (!cls) return "<NoClass>";
+  const node = cls.node as t.ClassDeclaration | t.ClassExpression;
+  if (node.id) return node.id.name;
+  if (cls.parentPath?.isVariableDeclarator()) {
+    const vd = cls.parentPath.node as t.VariableDeclarator;
+    if (t.isIdentifier(vd.id)) return vd.id.name;
+  }
+  return "<AnonClass>";
+}
+
+/**
+ * Resolve the "owner" name for an ObjectMethod's containing ObjectExpression.
+ * Looks one parent above the object literal:
+ *  - `const obj = { foo() {} }`               → "obj"
+ *  - `module.exports = { foo() {} }`          → "exports" (member-expr LHS)
+ *  - `const x = { sub: { foo() {} } }`        → "sub"   (ObjectProperty key)
+ *  - bare object literals                     → "<obj>" placeholder
+ */
+function objectOwnerNameFor(path: NodePath<t.ObjectMethod>): string {
+  const objExpr = path.parentPath; // ObjectExpression
+  if (!objExpr || !objExpr.isObjectExpression()) return "<obj>";
+
+  const grand = objExpr.parentPath;
+  if (!grand) return "<obj>";
+
+  if (grand.isVariableDeclarator()) {
+    const vd = grand.node as t.VariableDeclarator;
+    if (t.isIdentifier(vd.id)) return vd.id.name;
+  }
+  if (grand.isAssignmentExpression()) {
+    const lhsName = nameFromAssignmentLHS(
+      (grand.node as t.AssignmentExpression).left,
+    );
+    if (lhsName !== null) return lhsName;
+  }
+  if (grand.isObjectProperty()) {
+    const op = grand.node as t.ObjectProperty;
+    if (!op.computed) {
+      if (t.isIdentifier(op.key)) return op.key.name;
+      if (t.isStringLiteral(op.key)) return op.key.value;
+    }
+  }
+  return "<obj>";
+}
+
+/**
+ * Resolve a method/property key node into a printable string.
+ * Mirrors the conventions used in trace events:
+ *  - Identifier      → its name
+ *  - PrivateName     → `#${id.name}`
+ *  - StringLiteral   → its value
+ *  - NumericLiteral  → its stringified value
+ *  - anything else   → `<computed>`
+ */
+function keyNameFor(
+  key: t.ClassMethod["key"] | t.ObjectMethod["key"] | t.PrivateName,
+): string {
+  if (t.isIdentifier(key)) return key.name;
+  if (t.isPrivateName(key)) return `#${key.id.name}`;
+  if (t.isStringLiteral(key)) return key.value;
+  if (t.isNumericLiteral(key)) return String(key.value);
+  return "<computed>";
 }
 
 /**
