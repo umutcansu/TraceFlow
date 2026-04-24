@@ -66,6 +66,14 @@ data class SimpleResponse(val message: String)
 @Serializable
 data class TracesPage(val events: List<TraceEvent>, val nextCursor: Long? = null)
 
+@Serializable
+data class AppSummary(
+    val appId: String,
+    val eventCount: Int,
+    val lastSeen: Long,
+    val platforms: List<String>,
+)
+
 data class TraceQuery(
     val since: Long = 0L,
     val until: Long? = null,
@@ -250,6 +258,43 @@ fun clearEvents(): Int = transaction {
     count
 }
 
+/**
+ * Summarizes every app that has sent at least one schema-v2 event
+ * (i.e. with a non-null app_id). v1 legacy rows are intentionally
+ * excluded so the plugin's app picker only surfaces identifiable apps.
+ *
+ * Returns one entry per distinct appId with event count, last-seen
+ * timestamp, and the distinct set of platforms that appId has been
+ * seen from. Sorted by lastSeen desc so the most-active app is first.
+ */
+fun listApps(): List<AppSummary> = transaction {
+    val counts = mutableMapOf<String, Int>()
+    val lastSeen = mutableMapOf<String, Long>()
+    val platforms = mutableMapOf<String, MutableSet<String>>()
+
+    TraceEvents
+        .select(TraceEvents.appId, TraceEvents.platform, TraceEvents.ts)
+        .where { TraceEvents.appId.isNotNull() }
+        .forEach { row ->
+            val appId = row[TraceEvents.appId] ?: return@forEach
+            counts[appId] = (counts[appId] ?: 0) + 1
+            val ts = row[TraceEvents.ts]
+            if (ts > (lastSeen[appId] ?: Long.MIN_VALUE)) lastSeen[appId] = ts
+            row[TraceEvents.platform]?.let { p ->
+                platforms.getOrPut(appId) { mutableSetOf() }.add(p)
+            }
+        }
+
+    counts.keys.map { appId ->
+        AppSummary(
+            appId = appId,
+            eventCount = counts.getValue(appId),
+            lastSeen = lastSeen[appId] ?: 0L,
+            platforms = platforms[appId]?.toList()?.sorted() ?: emptyList(),
+        )
+    }.sortedByDescending { it.lastSeen }
+}
+
 fun statsQuery(): StatsResponse = transaction {
     val total = TraceEvents.selectAll().count().toInt()
     val devices = TraceEvents.select(TraceEvents.deviceModel, TraceEvents.tag)
@@ -349,6 +394,12 @@ fun main() {
             // GET /stats — overview
             get("/stats") {
                 call.respond(statsQuery())
+            }
+
+            // GET /apps — per-app summary (populates plugin app picker).
+            // v1 rows without appId are excluded.
+            get("/apps") {
+                call.respond(listApps())
             }
 
             // DELETE /traces — clear all events

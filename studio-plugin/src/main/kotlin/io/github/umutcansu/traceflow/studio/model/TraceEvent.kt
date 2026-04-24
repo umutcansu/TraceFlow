@@ -25,7 +25,25 @@ data class TraceEvent(
   val deviceManufacturer: String = "",
   val deviceModel: String = "",
   val tag: String = "",
+  // -- Schema v2 optional fields (all null-safe; absent for v1 events) ---------
+  val platform: String? = null,     // android-jvm | react-native | ios-swift | web-js
+  val appId: String? = null,
+  val appVersion: String? = null,
+  val buildNumber: String? = null,
+  val userId: String? = null,
+  val deviceId: String? = null,
+  val sessionId: String? = null,
+  val runtime: String? = null,
 ) {
+  /** Short label for the Platform column: compact badges, blank when unknown. */
+  val platformLabel: String get() = when (platform) {
+    "android-jvm"  -> "Android"
+    "react-native" -> "RN"
+    "ios-swift"    -> "iOS"
+    "web-js"       -> "Web"
+    null, ""       -> ""
+    else           -> platform  // forward-compat: unknown platform printed as-is
+  }
   val dateFormatted: String
     get() = DateTimeFormatter.ofPattern("yyyy-MM-dd")
       .withZone(ZoneId.systemDefault())

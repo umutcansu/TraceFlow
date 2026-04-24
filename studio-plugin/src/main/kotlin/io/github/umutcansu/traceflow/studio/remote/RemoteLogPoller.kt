@@ -24,6 +24,10 @@ class RemoteLogPoller(
   private val onEvent: (TraceEvent) -> Unit,
   private val onError: (String) -> Unit = {},
   private val onConnected: () -> Unit = {},
+  /** Server-side filters sent as query params on every poll (schema v2). */
+  private val platformFilter: String? = null,
+  private val appIdFilter: String? = null,
+  private val userIdFilter: String? = null,
 ) : Disposable {
 
   private val running = AtomicBoolean(false)
@@ -76,7 +80,11 @@ class RemoteLogPoller(
 
   private fun poll() {
     val separator = if (endpoint.contains('?')) '&' else '?'
-    val url = "${endpoint}${separator}since=$lastTimestamp"
+    val sb = StringBuilder(endpoint).append(separator).append("since=").append(lastTimestamp)
+    platformFilter?.takeIf { it.isNotBlank() }?.let { sb.append("&platform=").append(urlEncode(it)) }
+    appIdFilter?.takeIf   { it.isNotBlank() }?.let { sb.append("&appId=").append(urlEncode(it)) }
+    userIdFilter?.takeIf  { it.isNotBlank() }?.let { sb.append("&userId=").append(urlEncode(it)) }
+    val url = sb.toString()
 
     val body = HttpRequests.request(url)
       .connectTimeout(15000)
@@ -141,6 +149,11 @@ class RemoteLogPoller(
         obj.get(key)?.let { extra[key] = it.toString().removeSurrounding("\"") }
       }
 
+    // Stack frames (JS exceptions): join into extra["stack"] for the detail view.
+    obj.getAsJsonArray("stack")?.let { arr ->
+      extra["stack"] = arr.joinToString("\n") { it.asString }
+    }
+
     return TraceEvent(
       type = type,
       className = obj.get("class")?.asString ?: "",
@@ -154,6 +167,17 @@ class RemoteLogPoller(
       deviceManufacturer = obj.get("deviceManufacturer")?.asString ?: "",
       deviceModel = obj.get("deviceModel")?.asString ?: "",
       tag = obj.get("tag")?.asString ?: "",
+      platform    = obj.get("platform")?.takeIf { !it.isJsonNull }?.asString,
+      appId       = obj.get("appId")?.takeIf { !it.isJsonNull }?.asString,
+      appVersion  = obj.get("appVersion")?.takeIf { !it.isJsonNull }?.asString,
+      buildNumber = obj.get("buildNumber")?.takeIf { !it.isJsonNull }?.asString,
+      userId      = obj.get("userId")?.takeIf { !it.isJsonNull }?.asString,
+      deviceId    = obj.get("deviceId")?.takeIf { !it.isJsonNull }?.asString,
+      sessionId   = obj.get("sessionId")?.takeIf { !it.isJsonNull }?.asString,
+      runtime     = obj.get("runtime")?.takeIf { !it.isJsonNull }?.asString,
     )
   }
+
+  private fun urlEncode(s: String): String =
+    java.net.URLEncoder.encode(s, Charsets.UTF_8)
 }
