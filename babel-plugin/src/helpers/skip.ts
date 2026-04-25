@@ -5,6 +5,11 @@
  *  - instrumenting third-party code in `node_modules`
  *  - instrumenting the runtime package itself (which would create an import
  *    cycle, since the runtime is what we'd import *from*)
+ *  - **virtual / synthetic bundler files** (Metro polyfills like
+ *    `\0polyfill:external-require`, Rollup virtual modules with the same
+ *    `\0` prefix). These run *outside* the module system — Hermes will
+ *    crash at boot with "Property 'require' doesn't exist" if we inject
+ *    a `require(...)` call into them.
  *  - user-supplied excludePatterns
  *  - explicit `@notrace` opt-outs on individual nodes
  */
@@ -28,6 +33,21 @@ export function shouldSkipFile(
   opts: ResolvedOptions,
 ): boolean {
   if (!filename) return true;
+
+  // Virtual / synthetic files used by bundlers. Metro joins its
+  // virtual-module marker (a NUL byte `\0`) onto the project root and
+  // hands Babel a string like
+  //   /abs/path/to/project/\0polyfill:external-require
+  // Rollup uses the same `\0` convention, just without the absolute
+  // prefix. NUL is illegal in real filesystem paths, so its presence
+  // anywhere in `filename` is a reliable virtual-file signal.
+  //
+  // These polyfills bootstrap the module system itself: they run as a
+  // pre-amble before any module wrapper is in place. Injecting a
+  // `require("@umutcansu/traceflow-runtime")` into them yields a hard
+  // boot crash on Hermes ("Property 'require' doesn't exist") because
+  // the runtime hasn't installed module-system globals yet.
+  if (filename.includes("\0")) return true;
 
   // node_modules: forward-slashes only is sufficient because Babel normalizes
   // paths to POSIX separators in `file.opts.filename` even on Windows.

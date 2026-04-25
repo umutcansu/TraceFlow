@@ -38,6 +38,40 @@ gzip body without the header (legacy RN behaviour), correct
 gzip + header (web/Node), and plain JSON (post-fix RN). All three
 return HTTP 200 and round-trip into SQLite.
 
+## `babel-plugin` [0.1.2] — 2026-04-25
+
+Skip Metro / Rollup virtual polyfill files. The 0.1.1 release fixed
+the Metro modules-commonjs orphan-import case, but a separate boot
+crash showed up on a real Mi 9T + Hermes run:
+
+```
+ReferenceError: Property 'require' doesn't exist
+Non-js exception: AppRegistryBinding::startSurface failed.
+                  Global was not installed.
+```
+
+Cause: Metro represents its bootstrap polyfills (e.g.
+`\0polyfill:external-require`, `\0polyfill:assets-registry`) as
+virtual modules. Their filename gets joined with the project root
+and arrives at Babel as e.g.
+`/abs/path/to/project/\0polyfill:external-require`. The 0.1.1 skip
+heuristic only checked `filename.startsWith("\0")`, missed the
+embedded NUL byte, and instrumented the polyfill — which runs
+*before* the module system bootstraps, so a `require(...)` call
+injected there had nothing to resolve and Hermes hard-crashed at
+boot.
+
+### Fix
+
+`shouldSkipFile` now skips any filename containing a NUL byte
+(`filename.includes("\0")`). NUL is illegal in real filesystem paths,
+so its presence anywhere is a reliable virtual-file signal.
+
+Verified end-to-end on a Mi 9T running the new
+`examples/rn-app/` Expo demo: app boots, runtime initialises,
+14 events post to a local sample-server with `platform=react-native`
+tagged correctly. No regression in the Node test suite (71/71).
+
 ## `babel-plugin` [0.1.1] — 2026-04-25
 
 Bug fix for Metro / React Native bundles. `0.1.0` injected the runtime

@@ -13,9 +13,11 @@ import {
   setUserId,
 } from "@umutcansu/traceflow-runtime";
 
-// Edit this for your environment. Android emulator: 10.0.2.2 → host.
-// iOS simulator / web: localhost.
-const ENDPOINT = "http://10.0.2.2:4567/traces";
+// Edit this for your environment.
+//   - Physical device on same LAN (recommended): host's LAN IP
+//   - Android emulator: 10.0.2.2
+//   - iOS simulator / web: localhost
+const ENDPOINT = "http://192.168.1.80:4567/traces";
 
 initTraceFlow({
   endpoint: ENDPOINT,
