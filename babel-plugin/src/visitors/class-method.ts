@@ -58,8 +58,11 @@ function handle(
   if (node[WRAPPED_FLAG]) return;
   if (hasNoTraceComment(node)) return;
 
-  // Stage 4 scope: synchronous, non-generator only. Stage 5 will drop these.
-  if (node.async || node.generator) return;
+  // Stage 5: async methods are now wrapped. Generator methods (and async
+  // generator methods, since `async` + `generator` both flag true) remain
+  // deferred. `buildWrappedBody` is unchanged — async-await flows through
+  // try/finally with identical observable semantics to sync.
+  if (node.generator) return;
 
   // Skip derived-class constructors — `super()` must remain the first stmt.
   if (

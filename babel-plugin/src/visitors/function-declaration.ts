@@ -12,7 +12,7 @@
  *  1. file-level skip check (cached on `state.tfSkip`)
  *  2. per-node `__tfWrapped` flag check (idempotency under multi-pass usage)
  *  3. `@notrace` opt-out scan on leading comments
- *  4. async/generator early-return (deferred to Stage 5)
+ *  4. generator early-return (still deferred; async is wrapped as of Stage 5)
  *  5. lazy import injection (so files with no wrappable functions stay clean)
  *  6. body replacement via `buildWrappedBody`
  */
@@ -42,9 +42,18 @@ export const functionDeclarationVisitor: Visitor<TFState> = {
       if (node[WRAPPED_FLAG]) return;
       if (hasNoTraceComment(node)) return;
 
-      // Stage 2 scope: synchronous, non-generator, named declarations only.
-      // The async/generator branches are handled by Stage 5; do not remove.
-      if (node.async || node.generator) return;
+      // Stage 5 scope: async functions are now wrapped. Generators remain
+      // deferred — wrapping a generator with the current try/finally shape
+      // would break the lazy `yield` semantics.
+      //
+      // Async functions need NO body-shape change: JS try/finally has the
+      // same observable semantics for async — the awaited promise's result
+      // (or rejection) is settled before the generated `return`/`throw`
+      // executes, so `finally` still runs after the function's logical end
+      // and `catch` still sees rejected awaits as thrown errors. The wall
+      // clock measured by `Date.now() - __tf_t0` correctly includes await
+      // time. See `helpers/builders.ts` — Stage 5 added zero lines there.
+      if (node.generator) return;
       if (!node.id) return; // unreachable for declarations, but type-narrowed.
 
       // Lazy import injection — only fires when the file actually has at

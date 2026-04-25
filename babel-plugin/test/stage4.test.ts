@@ -251,7 +251,7 @@ describe("Stage 4: class-method / object-method wrapping", () => {
     assertContains(out, "x = 1;");
   });
 
-  it("does NOT wrap async class methods (Stage 5)", () => {
+  it("wraps async class methods as of Stage 5", () => {
     const src = `
       class G {
         async load() { return 1; }
@@ -259,8 +259,7 @@ describe("Stage 4: class-method / object-method wrapping", () => {
     `;
     const out = transform(src, "/abs/path/to/g.ts");
 
-    expect(out).toBe(baseline(src, "/abs/path/to/g.ts"));
-    assertNotContains(out, "__tf_c", "_getActiveClient");
+    assertContains(out, "async load", "__tf_c?.enter", '"G.load"', "__tf_c?.exit");
   });
 
   it("is idempotent across two plugin instances over the same AST", () => {

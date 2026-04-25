@@ -51,8 +51,12 @@ function handle(
   if (node[WRAPPED_FLAG]) return;
   if (hasNoTraceComment(node)) return;
 
-  // Stage 3 scope: synchronous, non-generator only. Stage 5 will drop these.
-  if (node.async || node.generator) return;
+  // Stage 5: async function/arrow expressions are now wrapped. Generators
+  // remain deferred. The body shape produced by `buildWrappedBody` is
+  // unchanged — try/finally semantics are identical for async, so the
+  // existing prelude/postlude correctly observes enter before the first
+  // await and exit after the returned promise settles.
+  if (node.generator) return;
 
   const name = methodNameFor(path);
   if (!isWrappableNamed(name) && !state.tfOpts.instrumentAnonymous) return;

@@ -254,11 +254,10 @@ describe("Stage 3: function-expression / arrow wrapping", () => {
     expect((sandbox.module as { exports: number }).exports).toBe(42);
   });
 
-  it("does NOT wrap async arrow functions (Stage 5)", () => {
+  it("wraps async arrow functions as of Stage 5", () => {
     const src = "const f = async () => 1;";
     const out = transform(src, "/abs/path/to/a.ts");
 
-    expect(out).toBe(baseline(src, "/abs/path/to/a.ts"));
-    assertNotContains(out, "__tf_c", "__tf_getClient", "_getActiveClient");
+    assertContains(out, "async ()", "__tf_c?.enter", '"f"', "__tf_c?.exit");
   });
 });

@@ -153,13 +153,14 @@ describe("Stage 2: function-declaration wrapping", () => {
     assertNotContains(out, '__tf_c?.enter("math", "add", {');
   });
 
-  it("does NOT wrap async function declarations (Stage 5)", () => {
+  it("wraps async function declarations as of Stage 5", () => {
+    // Stage 2 originally skipped async; Stage 5 dropped that guard.
+    // The wrap shape is identical to sync — try/finally semantics for
+    // async are equivalent, so no body change is needed.
     const src = "async function fetchUser(id) { return null; }";
     const out = transform(src, "/abs/path/to/users.ts");
-    const base = baseline(src, "/abs/path/to/users.ts");
 
-    expect(out).toBe(base);
-    assertNotContains(out, "__tf_c", "__tf_getClient", "_getActiveClient");
+    assertContains(out, "async function fetchUser", "__tf_c?.enter", '"fetchUser"', "__tf_c?.exit");
   });
 
   it("does NOT wrap generator function declarations (deferred)", () => {
