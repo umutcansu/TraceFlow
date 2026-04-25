@@ -1,0 +1,182 @@
+// Jenkins pipeline for publishing @umutcansu/traceflow-babel-plugin to npm.
+//
+// Mirrors runtime-js/Jenkinsfile in shape. Differences:
+//   - working dir: 'babel-plugin'
+//   - tag prefix:  'babel-plugin-vX.Y.Z'
+//   - tests run before build (Babel-plugin's vitest catches AST regressions)
+//
+// Expected Jenkins setup
+// ----------------------
+// 1. Credential 'npm-token-traceflow' (Secret text) — same one used by
+//    runtime-js publishes; granular npm token with read+write on
+//    @umutcansu scope.
+// 2. NodeJS tool 'node20' — same as runtime-js.
+// 3. Job 'traceflow-babel-plugin-publish' configured against this repo
+//    on branch '*/main' with Script Path 'babel-plugin/Jenkinsfile'.
+//
+pipeline {
+  agent any
+
+  tools {
+    nodejs 'node20'
+  }
+
+  parameters {
+    choice(
+      name: 'BUMP',
+      choices: ['none', 'patch', 'minor', 'major'],
+      description: 'Semver bump applied to babel-plugin/package.json before publish. "none" publishes the version that is already committed.'
+    )
+    booleanParam(
+      name: 'DRY_RUN',
+      defaultValue: false,
+      description: 'Run through every step but skip the real `npm publish`.'
+    )
+  }
+
+  environment {
+    NPM_TOKEN = credentials('npm-token-traceflow')
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
+    timeout(time: 20, unit: 'MINUTES')
+  }
+
+  stages {
+    stage('Prepare workspace') {
+      steps {
+        sh '''
+          set -eu
+          node --version
+          npm --version
+          echo "Building from branch: ${GIT_BRANCH:-unknown}"
+        '''
+      }
+    }
+
+    stage('Install') {
+      steps {
+        dir('babel-plugin') {
+          sh 'npm ci --no-audit --no-fund'
+        }
+      }
+    }
+
+    stage('Typecheck') {
+      steps {
+        dir('babel-plugin') {
+          sh 'npm run typecheck'
+        }
+      }
+    }
+
+    stage('Test') {
+      steps {
+        dir('babel-plugin') {
+          sh 'npm test'
+        }
+      }
+    }
+
+    stage('Build') {
+      steps {
+        dir('babel-plugin') {
+          sh 'npm run build'
+          sh 'ls -la dist/'
+        }
+      }
+    }
+
+    stage('Bump version') {
+      when { expression { params.BUMP != 'none' } }
+      steps {
+        dir('babel-plugin') {
+          sh '''
+            set -eu
+            git config user.email "${GIT_COMMITTER_EMAIL:-ci@traceflow.dev}"
+            git config user.name  "${GIT_COMMITTER_NAME:-TraceFlow CI}"
+            NEW_VERSION=$(npm --no-git-tag-version version "${BUMP}")
+            echo "Bumped to ${NEW_VERSION}"
+            git add package.json package-lock.json
+            git commit -m "babel-plugin: release ${NEW_VERSION}"
+            git tag "babel-plugin-${NEW_VERSION}"
+          '''
+        }
+      }
+    }
+
+    stage('Verify version is unpublished') {
+      steps {
+        dir('babel-plugin') {
+          sh '''
+            set -eu
+            NAME=$(node -p "require('./package.json').name")
+            VERSION=$(node -p "require('./package.json').version")
+            echo "Package: ${NAME}@${VERSION}"
+            if npm view "${NAME}@${VERSION}" version 2>/dev/null | grep -qx "${VERSION}"; then
+              echo "ERROR: ${NAME}@${VERSION} is already published. Bump the version first."
+              exit 1
+            fi
+            echo "OK: version is unpublished."
+          '''
+        }
+      }
+    }
+
+    stage('Publish (dry-run)') {
+      steps {
+        dir('babel-plugin') {
+          sh '''
+            set -eu
+            echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
+            npm publish --access public --dry-run
+          '''
+        }
+      }
+    }
+
+    stage('Publish') {
+      when { expression { !params.DRY_RUN } }
+      steps {
+        dir('babel-plugin') {
+          sh '''
+            set -eu
+            npm publish --access public
+          '''
+        }
+      }
+    }
+
+    stage('Push tag') {
+      when {
+        allOf {
+          expression { params.BUMP != 'none' }
+          expression { !params.DRY_RUN }
+        }
+      }
+      steps {
+        sh '''
+          set -eu
+          git push origin HEAD:${GIT_BRANCH#origin/}
+          git push origin --tags
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      dir('babel-plugin') {
+        sh 'rm -f .npmrc'
+      }
+    }
+    success {
+      echo "Done. If this was a real publish, the package is live on the npm registry."
+    }
+    failure {
+      echo "Publish failed — check the stage logs. No tag was pushed."
+    }
+  }
+}
