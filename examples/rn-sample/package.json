@@ -7,11 +7,12 @@
     "simulate": "node simulate.mjs"
   },
   "dependencies": {
-    "@umutcansu/traceflow-runtime": "^0.2.0"
+    "@umutcansu/traceflow-runtime": "^0.2.1"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@babel/plugin-transform-modules-commonjs": "^7.28.6",
     "@babel/preset-typescript": "^7.24.0",
-    "@umutcansu/traceflow-babel-plugin": "^0.1.0"
+    "@umutcansu/traceflow-babel-plugin": "^0.1.1"
   }
 }
