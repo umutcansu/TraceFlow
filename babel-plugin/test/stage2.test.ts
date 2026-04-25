@@ -93,7 +93,7 @@ describe("Stage 2: function-declaration wrapping", () => {
     assertContains(
       out,
       "import {",
-      "_getActiveClient as __tf_getClient",
+      "_getActiveClient as _tf_getClient",
       // captureException is no longer imported — the catch path uses
       // __tf_c?.caught(class, method, err) so the CATCH event is
       // attributed to the originating function instead of the
@@ -141,7 +141,7 @@ describe("Stage 2: function-declaration wrapping", () => {
     const base = baseline(src, "/abs/path/to/math.ts");
 
     expect(out).toBe(base);
-    assertNotContains(out, "__tf_getClient", "_getActiveClient", "__tf_c");
+    assertNotContains(out, "_tf_getClient", "_getActiveClient", "__tf_c");
   });
 
   it("omits the params object when traceArguments is false", () => {
@@ -173,14 +173,14 @@ describe("Stage 2: function-declaration wrapping", () => {
     const base = baseline(src, "/abs/path/to/gens.ts");
 
     expect(out).toBe(base);
-    assertNotContains(out, "__tf_c", "__tf_getClient");
+    assertNotContains(out, "__tf_c", "_tf_getClient");
   });
 
   it("does not inject the import when a file has no wrappable functions", () => {
     const src = "export const x = 1;";
     const out = transform(src, "/abs/path/to/foo.ts");
     expect(out).toBe(baseline(src, "/abs/path/to/foo.ts"));
-    assertNotContains(out, "_getActiveClient", "__tf_getClient");
+    assertNotContains(out, "_getActiveClient", "_tf_getClient");
   });
 
   it("emits exactly one runtime import for files with multiple functions", () => {
@@ -193,7 +193,7 @@ describe("Stage 2: function-declaration wrapping", () => {
     // The original imported name appears only inside the import specifier.
     expect(countOccurrences(out, "_getActiveClient")).toBe(1);
     // ...whereas the local alias is referenced once per wrapped function.
-    expect(countOccurrences(out, "__tf_getClient()")).toBe(2);
+    expect(countOccurrences(out, "_tf_getClient()")).toBe(2);
     // And there should be one ENTER per function.
     expect(countOccurrences(out, "__tf_c?.enter(")).toBe(2);
   });

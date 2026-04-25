@@ -21,7 +21,7 @@ import type { NodePath, Visitor } from "@babel/core";
 import * as t from "@babel/types";
 import { TFState } from "../helpers/state";
 import { hasNoTraceComment } from "../helpers/skip";
-import { ensureRuntimeImports } from "../helpers/imports";
+import { ensureRuntimeClientImport } from "../helpers/imports";
 import { methodNameFor, collectParamNames } from "../helpers/naming";
 import { buildWrappedBody } from "../helpers/builders";
 
@@ -77,7 +77,7 @@ function handle(
   // Lazy import injection — only fires when we actually wrap something.
   const programPath = path.scope.getProgramParent()
     .path as NodePath<t.Program>;
-  ensureRuntimeImports(programPath, state.tfOpts);
+  const clientFn = ensureRuntimeClientImport(programPath, state.tfOpts);
 
   const newBody = buildWrappedBody(node.body, {
     className: state.tfClassName,
@@ -86,6 +86,7 @@ function handle(
       ? collectParamNames(node.params)
       : [],
     traceArguments: state.tfOpts.traceArguments,
+    clientFn,
   });
 
   node.body = newBody;

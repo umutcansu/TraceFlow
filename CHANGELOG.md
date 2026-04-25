@@ -38,6 +38,48 @@ gzip body without the header (legacy RN behaviour), correct
 gzip + header (web/Node), and plain JSON (post-fix RN). All three
 return HTTP 200 and round-trip into SQLite.
 
+## `babel-plugin` [0.1.1] — 2026-04-25
+
+Bug fix for Metro / React Native bundles. `0.1.0` injected the runtime
+import via raw `t.importDeclaration`, which works under pure ESM but
+left an orphan `import` in the bundle when Metro's modules-commonjs
+pass had already converted other imports to `require()`. Hermes
+rejected the bundle with:
+
+```
+SyntaxError: import declaration must be at top level of module
+```
+
+Reported by a user shipping `@umutcansu/traceflow-runtime@0.2.0` on
+RN 0.81 + Expo SDK 54 + Hermes; the workaround was a `TF_DISABLE=1`
+build flag that disabled the plugin entirely.
+
+### Fix
+
+Switched `helpers/imports.ts` to use `addNamed` from
+`@babel/helper-module-imports`. That helper is the canonical Babel
+API for adding imports during a plugin pass: it picks the right
+syntax for the active module system (ESM, CJS interop, AMD/UMD as
+configured by the consuming preset), deduplicates within a file, and
+returns a `t.Identifier` whose binding is visible to subsequent
+transforms.
+
+The local alias name changed from `__tf_getClient` to `_tf_getClient`
+(single underscore — the prefix `addNamed` chooses by default for the
+hint we pass). The body builder threads the returned Identifier through
+its `WrapInputs.clientFn` field and clones it into call sites, so any
+future name uniquification is handled correctly.
+
+Verified end-to-end:
+- 71/71 unit tests green.
+- `e2e.smoke.mjs` round-trips 9 events with correct CATCH attribution.
+- Direct CJS-mode transform (mimicking Metro's pipeline) emits a
+  `require("@umutcansu/traceflow-runtime")` call instead of the
+  orphan `import`, which Hermes accepts cleanly.
+
+Adds `@babel/helper-module-imports` as a dependency. No API change
+for consumers — same plugin entry, same options.
+
 ## `babel-plugin` [0.1.0] — 2026-04-25
 
 First publishable release of `@umutcansu/traceflow-babel-plugin` —

@@ -205,7 +205,7 @@ describe("Stage 5: async function wrapping", () => {
     const stripped = stripRuntimeImport(out);
     const sandbox: Record<string, unknown> = {
       module: { exports: {} as unknown },
-      __tf_getClient: () => mockClient,
+      _tf_getClient: () => mockClient,
       // No standalone __tf_capture stub: the wrapper now uses the client's
       // own .caught() method, which short-circuits when the client is null.
     };

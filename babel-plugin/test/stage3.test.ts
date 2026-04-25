@@ -217,7 +217,7 @@ describe("Stage 3: function-expression / arrow wrapping", () => {
     const out = transform(src, "/abs/path/to/multi.ts");
 
     expect(countOccurrences(out, "_getActiveClient")).toBe(1);
-    expect(countOccurrences(out, "__tf_getClient()")).toBe(3);
+    expect(countOccurrences(out, "_tf_getClient()")).toBe(3);
     expect(countOccurrences(out, "__tf_c?.enter(")).toBe(3);
   });
 
@@ -247,7 +247,7 @@ describe("Stage 3: function-expression / arrow wrapping", () => {
     );
     const sandbox: Record<string, unknown> = {
       module: { exports: {} as unknown },
-      __tf_getClient: () => null,
+      _tf_getClient: () => null,
       __tf_capture: () => undefined,
     };
     vm.runInNewContext(stripped, sandbox);

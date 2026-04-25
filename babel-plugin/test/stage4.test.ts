@@ -322,7 +322,7 @@ describe("Stage 4: class-method / object-method wrapping", () => {
     const stripped = stripRuntimeImport(out);
     const sandbox: Record<string, unknown> = {
       module: { exports: {} as unknown },
-      __tf_getClient: () => null,
+      _tf_getClient: () => null,
       __tf_capture: () => undefined,
     };
     vm.runInNewContext(stripped, sandbox);
@@ -348,7 +348,7 @@ describe("Stage 4: class-method / object-method wrapping", () => {
     const stripped = stripRuntimeImport(out);
     const sandbox: Record<string, unknown> = {
       module: { exports: {} as unknown },
-      __tf_getClient: () => null,
+      _tf_getClient: () => null,
       __tf_capture: () => undefined,
     };
     vm.runInNewContext(stripped, sandbox);

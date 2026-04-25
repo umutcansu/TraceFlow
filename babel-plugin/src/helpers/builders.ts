@@ -31,7 +31,6 @@ import * as t from "@babel/types";
 /** Local identifier names — kept in one place so renames are atomic. */
 const ID_CLIENT = "__tf_c";
 const ID_T0 = "__tf_t0";
-const ID_GET_CLIENT = "__tf_getClient";
 const ID_ERR = "__tf_e";
 
 /** Inputs needed to build the wrapped body. */
@@ -44,6 +43,13 @@ export interface WrapInputs {
   paramNames: string[];
   /** Whether the params object should be emitted at all. */
   traceArguments: boolean;
+  /**
+   * Identifier referring to the runtime's `_getActiveClient` function
+   * within this file's scope. Returned by `ensureRuntimeClientImport`;
+   * may be uniquified (`_tf_getClient2` etc.) so the callee MUST clone
+   * this rather than reusing a hard-coded name.
+   */
+  clientFn: t.Identifier;
 }
 
 /**
@@ -59,11 +65,15 @@ export function buildWrappedBody(
   const classLit = t.stringLiteral(w.className);
   const methodLit = t.stringLiteral(w.methodName);
 
-  // const __tf_c = __tf_getClient();
+  // const __tf_c = <runtime _getActiveClient binding>();
+  // The local binding name comes from helper-module-imports' addNamed,
+  // which adapts to the active module system (ESM, CJS interop, etc.).
+  // Cloning the identifier is essential because Babel rejects re-use of
+  // the same node in multiple positions.
   const declClient = t.variableDeclaration("const", [
     t.variableDeclarator(
       t.identifier(ID_CLIENT),
-      t.callExpression(t.identifier(ID_GET_CLIENT), []),
+      t.callExpression(t.cloneNode(w.clientFn), []),
     ),
   ]);
 

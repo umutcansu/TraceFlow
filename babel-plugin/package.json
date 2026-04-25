@@ -1,6 +1,6 @@
 {
   "name": "@umutcansu/traceflow-babel-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Babel plugin that auto-instruments JavaScript / TypeScript functions with TraceFlow ENTER/EXIT/CATCH calls. Companion to @umutcansu/traceflow-runtime.",
   "keywords": [
     "traceflow",
@@ -37,12 +37,16 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@babel/helper-module-imports": "^7.24.0"
+  },
   "peerDependencies": {
     "@babel/core": "^7.0.0",
     "@umutcansu/traceflow-runtime": ">=0.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
+    "@types/babel__helper-module-imports": "^7.18.0",
     "@types/babel__core": "^7.20.0",
     "@types/node": "^20.0.0",
     "tsup": "^8.0.0",

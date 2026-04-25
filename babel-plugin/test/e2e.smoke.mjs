@@ -91,7 +91,7 @@ const modPath = path.join(tmp, "demo.mjs");
 // Babel produced CJS-style requires for the runtimeImport when targeting the
 // .cjs path; rewrite the require into a dynamic ESM import shim.
 const moduleSource = `
-import { _getActiveClient as __tf_getClient } from ${JSON.stringify(pathToFileURL(runtimeAbs).href)};
+import { _getActiveClient as _tf_getClient } from ${JSON.stringify(pathToFileURL(runtimeAbs).href)};
 ${out.code.replace(
   /import\s*\{[^}]+\}\s*from\s*["'][^"']+["'];?/,
   "" // drop the original import — we'll provide bindings via the prelude above

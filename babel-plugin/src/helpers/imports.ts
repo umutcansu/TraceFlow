@@ -1,65 +1,62 @@
 /**
- * Lazy injection of the TraceFlow runtime imports.
+ * Module-aware import injection for the TraceFlow runtime.
  *
- * Stage 2+ visitors will call `ensureRuntimeImports` the first time they wrap
- * a function in a given file. This module centralizes both:
- *  - the canonical alias names used inside emitted code
- *  - the idempotency flag that prevents the import from being inserted twice
+ * Earlier versions of this file used `t.importDeclaration` directly to
+ * unshift a raw `import { ... } from "@umutcansu/traceflow-runtime"` at
+ * the top of every transformed program. That works in pure ESM tooling
+ * but breaks under Metro / React Native: Metro's module-transform pass
+ * doesn't see imports added after the visitor that converts ESM->CJS
+ * has already run, so the orphan `import` survives into the bundle and
+ * Hermes rejects it with "import declaration must be at top level of
+ * module".
  *
- * Stage 1 builds the helper but never invokes it — emitting an import would
- * change the output of unmodified files, breaking the "byte-identical" test.
+ * `@babel/helper-module-imports` is the canonical fix. `addNamed`:
+ *
+ *  - Picks the right syntax for the active module system (real ESM
+ *    `import { x as y } from ...`, CJS interop `var y = require(...).x`,
+ *    or AMD/UMD as configured by the consuming preset).
+ *  - Deduplicates within a single source file, so calling it from
+ *    every wrapped function is cheap and idempotent.
+ *  - Returns a `t.Identifier` that we can clone into call sites — the
+ *    name may end up uniquified (e.g. `_tf_getClient2` if `nameHint`
+ *    collides with user code), so callers MUST thread the returned
+ *    identifier through rather than hard-coding the alias.
+ *
+ * The return value is what the visitors / builders use to construct
+ * the `__tf_c = <runtimeFn>()` declaration in each wrapped body.
  */
 
 import type { NodePath } from "@babel/core";
 import * as t from "@babel/types";
+import { addNamed } from "@babel/helper-module-imports";
 import { ResolvedOptions } from "../options";
 
-/** Local alias under which the runtime's `_getActiveClient` is bound. */
-const ALIAS_GET_CLIENT = "__tf_getClient";
+/** Preferred local name. Babel will uniquify if it would collide. */
+const NAME_HINT = "_tf_getClient";
 
 /**
- * Internal symbol name (via cast) used to mark a Program node as already
- * having had imports injected. Kept as a string constant so the same key is
- * read and written by both stage 1 (this file) and future stages.
+ * Idempotently register an `import { _getActiveClient as <hinted> }`
+ * for the current program (or the equivalent in CJS / other module
+ * systems). Returns the local Identifier reference that wrapper code
+ * should clone into call expressions.
+ *
+ * Caches the resolved Identifier on the Program node so repeated calls
+ * within the same file return the same instance without going through
+ * the helper's own dedup machinery a second time.
  */
-const IMPORTED_FLAG = "__tfImported";
-
-/**
- * Insert the TraceFlow runtime imports at the top of the program, exactly
- * once per file.
- *
- * Equivalent source:
- *   import { _getActiveClient as __tf_getClient } from "<opts.runtimeImport>";
- *
- * Note: earlier drafts also imported `captureException` for the catch path,
- * but the body wrapper now uses the client's `.caught(class, method, err)`
- * method (runtime-js >= 0.2.0) so the CATCH event keeps the originating
- * function's class/method labels. Only one binding needs to be brought in.
- *
- * Idempotency: the Program node is tagged with a `__tfImported` boolean.
- * Subsequent calls observe the flag and short-circuit, so it's safe (and
- * expected) for every wrapped function to call this helper.
- */
-export function ensureRuntimeImports(
+export function ensureRuntimeClientImport(
   programPath: NodePath<t.Program>,
   opts: ResolvedOptions,
-): void {
-  const program = programPath.node as t.Program & { [IMPORTED_FLAG]?: boolean };
-  if (program[IMPORTED_FLAG]) return;
+): t.Identifier {
+  const program = programPath.node as t.Program & {
+    __tfClientId?: t.Identifier;
+  };
+  if (program.__tfClientId) return program.__tfClientId;
 
-  const importDecl = t.importDeclaration(
-    [
-      // imported name (right) -> local alias (left): `imported as local`
-      t.importSpecifier(
-        t.identifier(ALIAS_GET_CLIENT),
-        t.identifier("_getActiveClient"),
-      ),
-    ],
-    t.stringLiteral(opts.runtimeImport),
-  );
+  const id = addNamed(programPath, "_getActiveClient", opts.runtimeImport, {
+    nameHint: NAME_HINT,
+  });
 
-  // Insert at the very top of the file so the bindings are available
-  // anywhere they might be referenced by injected wrappers.
-  program.body.unshift(importDecl);
-  program[IMPORTED_FLAG] = true;
+  program.__tfClientId = id;
+  return id;
 }

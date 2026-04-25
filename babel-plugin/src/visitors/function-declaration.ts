@@ -20,7 +20,7 @@ import type { NodePath, Visitor } from "@babel/core";
 import * as t from "@babel/types";
 import { TFState } from "../helpers/state";
 import { hasNoTraceComment } from "../helpers/skip";
-import { ensureRuntimeImports } from "../helpers/imports";
+import { ensureRuntimeClientImport } from "../helpers/imports";
 import { methodNameFor, collectParamNames } from "../helpers/naming";
 import { buildWrappedBody } from "../helpers/builders";
 
@@ -58,9 +58,12 @@ export const functionDeclarationVisitor: Visitor<TFState> = {
 
       // Lazy import injection — only fires when the file actually has at
       // least one wrappable function. Idempotent for subsequent calls.
+      // The returned identifier is the local binding the wrapper uses to
+      // call _getActiveClient(); helper-module-imports adapts the syntax
+      // to the active module system (ESM, CJS interop, etc.).
       const programPath = path.scope.getProgramParent()
         .path as NodePath<t.Program>;
-      ensureRuntimeImports(programPath, state.tfOpts);
+      const clientFn = ensureRuntimeClientImport(programPath, state.tfOpts);
 
       const newBody = buildWrappedBody(node.body, {
         className: state.tfClassName,
@@ -69,6 +72,7 @@ export const functionDeclarationVisitor: Visitor<TFState> = {
           ? collectParamNames(node.params)
           : [],
         traceArguments: state.tfOpts.traceArguments,
+        clientFn,
       });
 
       node.body = newBody;
