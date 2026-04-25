@@ -58,6 +58,8 @@ Global unhandled errors (both `ErrorUtils` on RN and
 | `trace(name, fn)` | Sync ENTER/EXIT around `fn`. |
 | `traceAsync(name, fn)` | Same, for `async` functions. |
 | `setUserId(id \| null)` | Update the userId on every subsequent event. |
+| `setEnabled(value)` | (since `0.2.2`) Runtime kill-switch — when `false`, every event-emitter on the active client becomes a no-op. The buffer and the flush loop stay alive, so re-enabling resumes immediately. |
+| `isEnabled()` | (since `0.2.2`) Whether `setEnabled` is currently allowing events through. |
 | `shutdown()` | Final flush; call on app background or test exit. |
 
 `TraceFlowClient` also exposes:
