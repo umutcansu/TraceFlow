@@ -94,9 +94,13 @@ describe("Stage 2: function-declaration wrapping", () => {
       out,
       "import {",
       "_getActiveClient as __tf_getClient",
-      "captureException as __tf_capture",
+      // captureException is no longer imported — the catch path uses
+      // __tf_c?.caught(class, method, err) so the CATCH event is
+      // attributed to the originating function instead of the
+      // captureException helper.
       '__tf_c?.enter("math", "add"',
       '__tf_c?.exit("math", "add"',
+      '__tf_c?.caught("math", "add"',
       "try {",
       "return a + b;",
       "finally {",

@@ -195,17 +195,19 @@ describe("Stage 5: async function wrapping", () => {
       exit: (...args: unknown[]) => {
         events.push(["exit", ...args]);
       },
+      // The babel-plugin's catch clause now calls `__tf_c?.caught(class,
+      // method, err)` (runtime-js >= 0.2.0). Register the stub here so the
+      // generated code finds it on the mock client.
+      caught: (className: string, method: string, err: { message: string }) => {
+        events.push(["caught", className, method, err.message]);
+      },
     };
     const stripped = stripRuntimeImport(out);
     const sandbox: Record<string, unknown> = {
       module: { exports: {} as unknown },
       __tf_getClient: () => mockClient,
-      __tf_capture: (err: { message: string }) => {
-        events.push(["capture", err.message]);
-      },
-      // The original source references a global `fetch`-less identifier in
-      // some other tests, but `bad` only throws synchronously and `ok` only
-      // does arithmetic, so no shimming required here.
+      // No standalone __tf_capture stub: the wrapper now uses the client's
+      // own .caught() method, which short-circuits when the client is null.
     };
     vm.runInNewContext(stripped, sandbox);
 
@@ -238,7 +240,9 @@ describe("Stage 5: async function wrapping", () => {
     expect(caught?.message).toBe("boom");
     expect(events.length).toBe(3);
     expect(events[0]?.[0]).toBe("enter");
-    expect(events[1]).toEqual(["capture", "boom"]);
+    // The caught event is now attributed to the originating function
+    // (smoke / bad) rather than the generic captureException helper.
+    expect(events[1]).toEqual(["caught", "smoke", "bad", "boom"]);
     expect(events[2]?.[0]).toBe("exit");
   });
 

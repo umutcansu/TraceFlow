@@ -16,8 +16,6 @@ import { ResolvedOptions } from "../options";
 
 /** Local alias under which the runtime's `_getActiveClient` is bound. */
 const ALIAS_GET_CLIENT = "__tf_getClient";
-/** Local alias under which the runtime's `captureException` is bound. */
-const ALIAS_CAPTURE = "__tf_capture";
 
 /**
  * Internal symbol name (via cast) used to mark a Program node as already
@@ -31,10 +29,12 @@ const IMPORTED_FLAG = "__tfImported";
  * once per file.
  *
  * Equivalent source:
- *   import {
- *     _getActiveClient as __tf_getClient,
- *     captureException as __tf_capture,
- *   } from "<opts.runtimeImport>";
+ *   import { _getActiveClient as __tf_getClient } from "<opts.runtimeImport>";
+ *
+ * Note: earlier drafts also imported `captureException` for the catch path,
+ * but the body wrapper now uses the client's `.caught(class, method, err)`
+ * method (runtime-js >= 0.2.0) so the CATCH event keeps the originating
+ * function's class/method labels. Only one binding needs to be brought in.
  *
  * Idempotency: the Program node is tagged with a `__tfImported` boolean.
  * Subsequent calls observe the flag and short-circuit, so it's safe (and
@@ -53,10 +53,6 @@ export function ensureRuntimeImports(
       t.importSpecifier(
         t.identifier(ALIAS_GET_CLIENT),
         t.identifier("_getActiveClient"),
-      ),
-      t.importSpecifier(
-        t.identifier(ALIAS_CAPTURE),
-        t.identifier("captureException"),
       ),
     ],
     t.stringLiteral(opts.runtimeImport),

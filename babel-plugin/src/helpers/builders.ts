@@ -32,7 +32,6 @@ import * as t from "@babel/types";
 const ID_CLIENT = "__tf_c";
 const ID_T0 = "__tf_t0";
 const ID_GET_CLIENT = "__tf_getClient";
-const ID_CAPTURE = "__tf_capture";
 const ID_ERR = "__tf_e";
 
 /** Inputs needed to build the wrapped body. */
@@ -110,12 +109,29 @@ export function buildWrappedBody(
     ),
   );
 
-  // __tf_capture(__tf_e); throw __tf_e;
+  // __tf_c?.caught("<class>", "<method>", __tf_e); throw __tf_e;
+  // We use the client's caught() method (added in runtime-js 0.2) so the
+  // CATCH event keeps the originating function's class+method labels rather
+  // than the generic "captureException.manual" attribution that the
+  // module-level captureException helper would emit.
   const catchClause = t.catchClause(
     t.identifier(ID_ERR),
     t.blockStatement([
       t.expressionStatement(
-        t.callExpression(t.identifier(ID_CAPTURE), [t.identifier(ID_ERR)]),
+        t.optionalCallExpression(
+          t.optionalMemberExpression(
+            t.identifier(ID_CLIENT),
+            t.identifier("caught"),
+            false,
+            true,
+          ),
+          [
+            t.cloneNode(classLit),
+            t.cloneNode(methodLit),
+            t.identifier(ID_ERR),
+          ],
+          false,
+        ),
       ),
       t.throwStatement(t.identifier(ID_ERR)),
     ]),

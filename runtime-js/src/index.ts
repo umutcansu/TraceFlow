@@ -24,6 +24,12 @@ export interface TraceFlowClient {
   /** Resolved config after defaults applied. */
   readonly config: Readonly<ResolvedConfig>;
   captureException(err: unknown, meta?: { isFatal?: boolean; stack?: string[] }): void;
+  /**
+   * Emit a CATCH event attributed to a specific function. The babel-plugin
+   * uses this so wrapped functions report their own class/method on the
+   * CATCH event rather than the generic `captureException.manual` slot.
+   */
+  caught(className: string, method: string, err: unknown): void;
   trace<T>(name: string, fn: () => T): T;
   traceAsync<T>(name: string, fn: () => Promise<T>): Promise<T>;
   enter(className: string, method: string, params?: Record<string, unknown>): void;
@@ -115,6 +121,26 @@ export function initTraceFlow(cfg: TraceFlowConfig): TraceFlowClient {
         stack: maskStringArray(rawStack, mp),
         class: "captureException",
         method: meta?.isFatal ? "fatal" : "manual",
+        file: "",
+        line: 0,
+      });
+    },
+
+    /**
+     * Emit a CATCH event attributed to a specific class+method. Designed
+     * for the babel-plugin's instrumented `catch` block — it lets the
+     * originating function (rather than this runtime helper) take credit
+     * for the failure in the trace.
+     */
+    caught(className, method, err) {
+      const e = asError(err);
+      push({
+        type: "CATCH",
+        exception: maskString(e.name, mp),
+        message: maskString(e.message, mp),
+        stack: maskStringArray(splitStack(e.stack), mp),
+        class: className,
+        method,
         file: "",
         line: 0,
       });
