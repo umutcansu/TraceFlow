@@ -20,7 +20,7 @@ branch logging; no manual log statements needed on Android.
 | `io.github.umutcansu.traceflow` (Gradle plugin) | **2.0.1** | Plugin Portal |
 | Android Studio plugin | **2.0.1** | JetBrains Marketplace — adds envelope grace-parse so the v2 server's `{events, nextCursor}` response shape works alongside the legacy raw-array shape |
 | `@umutcansu/traceflow-runtime` | **0.2.2** | npm — `setEnabled(boolean)` runtime kill-switch (`0.2.2`); RN gzip header strip fix (`0.2.1`); `caught()` API for the babel-plugin (`0.2.0`) |
-| `@umutcansu/traceflow-babel-plugin` | **0.1.2** | npm — skips Metro virtual polyfill files to avoid Hermes boot crash "Property 'require' doesn't exist" (`0.1.2`); `addNamed`-based import injection so Metro's modules-commonjs pass picks it up cleanly (`0.1.1`) |
+| `@umutcansu/traceflow-babel-plugin` | **0.1.3** | npm — expands destructured params (`{ user, settings }`) into their actual bound identifiers in the ENTER call, fixing Hermes `ReferenceError: Property '_destr_0' doesn't exist` on boot (`0.1.3`); skips Metro virtual polyfill files (`0.1.2`); `addNamed`-based import injection (`0.1.1`) |
 
 Full history in [CHANGELOG.md](CHANGELOG.md).
 
