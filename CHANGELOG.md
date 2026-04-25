@@ -5,6 +5,39 @@ project follows [Semantic Versioning](https://semver.org/). Each
 component (`runtime`, `gradle-plugin`, `studio-plugin`,
 `runtime-js`, `babel-plugin`) is versioned and released independently.
 
+## `runtime-js` [0.2.1] — 2026-04-25
+
+Bug fix for React Native deployments. On RN/Hermes (verified on
+React Native 0.81 + Expo SDK 54 + Hermes), every POST from
+`@umutcansu/traceflow-runtime@0.2.0` was returning HTTP 500 because:
+
+- The runtime gzipped the body and set `Content-Encoding: gzip`.
+- React Native's fetch is implemented on top of OkHttp, whose
+  `BridgeInterceptor` strips outgoing `Content-Encoding` headers (it
+  manages transparent compression on its own).
+- The server gated decompression on the header alone; with the header
+  gone, the JSON parser saw raw gzip magic bytes (`1f 8b ...`) and
+  threw `JsonDecodingException`.
+
+### Fix
+
+- **Runtime (`sender.ts`)**: detect React Native at construction and
+  skip gzip on that platform regardless of the user's `compress` flag.
+  Web/Node behaviour is unchanged — both still gzip and set the
+  `Content-Encoding` header. Verified by simulating RN
+  (`navigator.product === "ReactNative"`) and confirming the POST
+  body arrives as plain JSON without the header.
+- **Sample-server (`Main.kt`)**: defence-in-depth magic-byte fallback —
+  if the first two bytes of the body are `0x1F 0x8B` (gzip magic),
+  decompress regardless of the `Content-Encoding` header. This keeps
+  older runtime clients (and any future platform with the same OkHttp
+  quirk) working without manual upgrades.
+
+End-to-end verified against the sample-server with three scenarios:
+gzip body without the header (legacy RN behaviour), correct
+gzip + header (web/Node), and plain JSON (post-fix RN). All three
+return HTTP 200 and round-trip into SQLite.
+
 ## `babel-plugin` [0.1.0] — 2026-04-25
 
 First publishable release of `@umutcansu/traceflow-babel-plugin` —

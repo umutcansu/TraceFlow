@@ -2,6 +2,22 @@ import type { ResolvedConfig } from "./config.js";
 import type { TraceEvent } from "./types.js";
 import { RingBuffer } from "./buffer.js";
 import { gzipString } from "./gzip.js";
+import { isReactNative } from "./platform.js";
+
+/**
+ * React Native's fetch is implemented on top of OkHttp on Android (and
+ * NSURLSession on iOS). OkHttp's BridgeInterceptor strips outgoing
+ * `Content-Encoding: gzip` headers because it normally manages
+ * transparent-compression itself, which means a server that gates
+ * decompression on the header alone receives raw gzip bytes and 500s
+ * the request. Detect the platform once at construction time and skip
+ * compression on RN regardless of the user-supplied `compress` flag.
+ *
+ * Tracking issue: header sıkıştırması, RN/Hermes (React Native 0.81 +
+ * Expo SDK 54). The server-side magic-byte fallback (see Main.kt) is a
+ * defence in depth; this client-side switch is the primary fix.
+ */
+const SUPPRESS_GZIP_FOR_PLATFORM = isReactNative();
 
 /**
  * Owns the flush loop: drains the shared buffer on an interval, POSTs the
@@ -81,7 +97,12 @@ export class Sender {
     if (this.cfg.token) headers["X-TraceFlow-Token"] = this.cfg.token;
 
     let body: BodyInit;
-    if (this.cfg.compress) {
+    // Skip gzip when:
+    //   1. The user explicitly opted out (`compress: false`), or
+    //   2. We're running on React Native — OkHttp strips outgoing
+    //      Content-Encoding headers, so the server can't tell the body
+    //      is gzipped and the JSON parser chokes on the magic bytes.
+    if (this.cfg.compress && !SUPPRESS_GZIP_FOR_PLATFORM) {
       const gz = await gzipString(bodyJson);
       if (gz.encoded) {
         headers["Content-Encoding"] = "gzip";

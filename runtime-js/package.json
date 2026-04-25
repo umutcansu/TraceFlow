@@ -1,6 +1,6 @@
 {
   "name": "@umutcansu/traceflow-runtime",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "TraceFlow ingestion runtime for React Native and web JS. Posts schema-v2 trace events to a TraceFlow server.",
   "keywords": ["traceflow", "tracing", "observability", "react-native", "logging"],
   "license": "MIT",

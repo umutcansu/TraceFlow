@@ -385,19 +385,28 @@ fun main() {
                         if (!call.requireIngestToken()) return@post
                         val encoding = call.request.headers["Content-Encoding"].orEmpty()
                         val batch: List<TraceEvent> = try {
-                            // Cap the raw stream first so a large pre-gzip body can't
-                            // exhaust memory before the decoder even starts.
+                            // Buffer the body so we can both honour Content-Encoding AND
+                            // fall back to gzip-magic detection for runtimes that gzip the
+                            // payload but lose the header in transit (observed with the JS
+                            // runtime on RN/Hermes — the header is set on the fetch but
+                            // doesn't survive the platform's HTTP layer).
                             val raw = SizeLimitedInputStream(
                                 call.receiveStream(), MAX_COMPRESSED_BYTES, "compressed body"
                             )
-                            val textStream = if (encoding.contains("gzip", ignoreCase = true)) {
+                            val rawBytes = raw.readBytes()
+                            val isGzipHeader = encoding.contains("gzip", ignoreCase = true)
+                            val isGzipMagic = rawBytes.size >= 2 &&
+                                rawBytes[0] == 0x1f.toByte() && rawBytes[1] == 0x8b.toByte()
+                            val textStream = if (isGzipHeader || isGzipMagic) {
                                 // And a second cap on the decompressed side defeats
                                 // zip-bomb ratios where a tiny gzip expands to gigabytes.
                                 SizeLimitedInputStream(
-                                    GZIPInputStream(raw), MAX_DECOMPRESSED_BYTES, "decompressed body"
+                                    GZIPInputStream(rawBytes.inputStream()),
+                                    MAX_DECOMPRESSED_BYTES,
+                                    "decompressed body"
                                 )
                             } else {
-                                raw
+                                rawBytes.inputStream()
                             }
                             val text = textStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
                             json.decodeFromString(text)
