@@ -12,6 +12,18 @@ branch logging; no manual log statements needed on Android.
 
 ![TraceFlow Flat View](screenshots/flat-view.png)
 
+## Latest
+
+| Package | Latest | Notes |
+|---|---|---|
+| `io.github.umutcansu:traceflow-runtime` | **2.0.0** | Maven Central |
+| `io.github.umutcansu.traceflow` (Gradle plugin) | **2.0.0** | Plugin Portal |
+| Android Studio plugin | **2.0.0** | JetBrains Marketplace |
+| `@umutcansu/traceflow-runtime` | **0.2.1** | npm — 0.2.1 fixes RN/Hermes gzip header strip → HTTP 500 (see [runtime-js/README.md](runtime-js/README.md#react-native--gzip)) |
+| `@umutcansu/traceflow-babel-plugin` | **0.1.1** | npm — 0.1.1 fixes Metro/Hermes "import declaration must be at top level of module" via `@babel/helper-module-imports`. Pin `^0.1.1` to avoid the original orphan-import bundle bug. |
+
+Full history in [CHANGELOG.md](CHANGELOG.md).
+
 ## What's new in 2.0
 
 - **Multi-platform ingestion** — `@umutcansu/traceflow-runtime` npm

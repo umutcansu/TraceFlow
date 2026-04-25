@@ -114,7 +114,7 @@ gzip-compressed responses for readers above ~860 B.
 | `flushIntervalMs` | `number` | `5000` | How often to send queued batches. |
 | `batchSize` | `number` | `50` | Max events per POST. |
 | `maxBufferSize` | `number` | `1000` | Oldest events drop when exceeded. |
-| `compress` | `boolean` | `true` | Gzip request bodies. |
+| `compress` | `boolean` | `true` (auto-off on RN) | Gzip request bodies. The runtime forces this off on React Native because OkHttp strips outgoing `Content-Encoding` headers; see "React Native + gzip" below. |
 | `maskPatterns` | `RegExp[]` | PII defaults | Matched against `params` keys. |
 | `retryOnError` | `boolean` | `true` | Prepend failed batches back into the buffer. |
 
@@ -124,8 +124,25 @@ gzip-compressed responses for readers above ~860 B.
 - **Always deploy the server behind TLS** in production. The sample-server
   ships HTTP for local dev; reverse-proxy it (nginx/Caddy/Cloudflare) with
   HTTPS before pointing a mobile app at it.
-- Gzip transport is on by default. If you hit a proxy that mis-handles
-  `Content-Encoding: gzip` on mobile networks, set `compress: false`.
+- Gzip transport is on by default for web/Node. If you hit a proxy that
+  mis-handles `Content-Encoding: gzip` on mobile networks, set
+  `compress: false` explicitly.
+
+### React Native + gzip
+On React Native, the runtime **always sends raw JSON regardless of the
+`compress` flag**. RN's fetch is implemented on top of OkHttp, whose
+`BridgeInterceptor` strips outgoing `Content-Encoding` headers — the
+server then sees gzip magic bytes with no header and the JSON parser
+fails with HTTP 500. This was reported in production with
+`runtime-js@0.2.0` on RN 0.81 + Expo SDK 54 + Hermes, and fixed in
+`0.2.1`. Upgrade to `^0.2.1` if you hit `[TraceFlow] flush error: HTTP
+500` from an RN device:
+```bash
+yarn add @umutcansu/traceflow-runtime@^0.2.1
+```
+The companion `sample-server` also has a magic-byte fallback that
+decodes header-less gzip bodies, so older runtime clients keep working
+against an upgraded server.
 
 ### Ingest token
 - When the server has `TRACEFLOW_INGEST_TOKEN` set, supply the same value

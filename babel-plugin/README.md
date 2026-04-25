@@ -179,6 +179,20 @@ on individual functions).
 Set `NODE_ENV=production` and the plugin disables itself. Or pass
 `enabled: false` explicitly.
 
+**Metro / Hermes: `SyntaxError: import declaration must be at top
+level of module`.**
+Fixed in `0.1.1`. Earlier `0.1.0` injected the runtime import via raw
+AST, which left an orphan `import` in the bundle when Metro's
+modules-commonjs pass had already converted other imports to
+`require()`. Hermes rejects bundles containing such orphans. Upgrade
+to `0.1.1+`:
+```bash
+yarn add -D @umutcansu/traceflow-babel-plugin@^0.1.1
+```
+The plugin now uses `@babel/helper-module-imports#addNamed`, which
+adapts the syntax to whatever module system the consuming preset
+ends up emitting.
+
 ## Versioning
 
 Independent semver from the JVM artefacts. `0.x` while the API is
