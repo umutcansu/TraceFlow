@@ -3,7 +3,28 @@
 All notable changes to TraceFlow are documented in this file. The
 project follows [Semantic Versioning](https://semver.org/). Each
 component (`runtime`, `gradle-plugin`, `studio-plugin`,
-`runtime-js`) is versioned and released independently.
+`runtime-js`, `babel-plugin`) is versioned and released independently.
+
+## `babel-plugin` [0.1.0] — 2026-04-25
+
+First publishable release of `@umutcansu/traceflow-babel-plugin` —
+zero-code auto-instrumentation for JavaScript / TypeScript via Babel.
+Wraps every function declaration, arrow / function expression, class
+method (including getters, setters, private), object method, and
+async variant of all of the above with `ENTER` / `EXIT` / `CATCH`
+calls into the runtime. Body shape uses plain `try`/`finally` with
+the original body verbatim, so `super`, `arguments`, `this`, and
+`return` semantics are preserved without any source-level surgery.
+Generators are deferred. Requires `@umutcansu/traceflow-runtime
+>= 0.2.0` for the `caught()` API.
+
+## `runtime-js` [0.2.0] — 2026-04-25
+
+Adds `TraceFlowClient.caught(className, method, err)` so the
+companion Babel plugin can emit `CATCH` events tagged with the
+originating function instead of the generic `captureException.manual`
+slot. Existing `captureException()` semantics are unchanged so the
+0.1.0 global error hooks keep attributing the same way.
 
 ## [2.0.0] — 2026-04-25
 

@@ -60,8 +60,17 @@ Global unhandled errors (both `ErrorUtils` on RN and
 | `setUserId(id \| null)` | Update the userId on every subsequent event. |
 | `shutdown()` | Final flush; call on app background or test exit. |
 
-`TraceFlowClient` also exposes `enter` / `exit` for manual
-instrumentation where `trace()` doesn't fit.
+`TraceFlowClient` also exposes:
+- `enter(className, method, params?)` and `exit(className, method, result?, durationMs?)` for manual instrumentation where `trace()` doesn't fit
+- `caught(className, method, err)` (since 0.2.0) emits a `CATCH` event tagged with the originating function rather than the generic `captureException.manual` slot. Used by `@umutcansu/traceflow-babel-plugin` so auto-instrumented catches keep their function labels.
+
+## Auto-instrumentation
+
+If you don't want to call `trace()` by hand, install
+[`@umutcansu/traceflow-babel-plugin`](https://www.npmjs.com/package/@umutcansu/traceflow-babel-plugin)
+and add it to `babel.config.js`. Every function declaration, arrow,
+class method, and async variant in your source then ships ENTER /
+EXIT / CATCH events without any further code change.
 
 ## Wire format
 

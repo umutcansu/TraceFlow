@@ -53,6 +53,7 @@ Full details: [CHANGELOG.md](CHANGELOG.md) and
 ### React Native / web JS (new in 2.0)
 - **Global error capture** — Unhandled exceptions and promise rejections via `ErrorUtils` (RN) or `window.error`/`unhandledrejection` (web)
 - **Manual API** — `captureException(err)`, `trace(name, fn)`, `traceAsync(name, fn)`, `setUserId(id)`
+- **Zero-code auto-instrumentation** — the optional [`@umutcansu/traceflow-babel-plugin`](babel-plugin/README.md) wraps every function (declarations, arrows, class/object methods, async variants) with `ENTER`/`EXIT`/`CATCH` calls at build time. No `trace()` boilerplate; this is the JS equivalent of the Android bytecode injection.
 - **Gzip transport** — `CompressionStream` with optional `pako` fallback
 - **Offline-safe** — Ring buffer with batch retry on failure
 - **PII masking** — Stack frames, messages, and results scrubbed of `password=`, `Bearer …`, JWTs before sending
@@ -170,6 +171,32 @@ const parsed = trace('parseConfig', () => JSON.parse(raw));
 Global errors and unhandled promise rejections are captured
 automatically without additional code. Full API:
 [runtime-js/README.md](runtime-js/README.md).
+
+### 5. Auto-instrument every function (optional)
+
+If you want every function in your RN / web code to emit `ENTER` /
+`EXIT` / `CATCH` events automatically — the JS equivalent of TraceFlow's
+Android bytecode injection — add the Babel plugin:
+
+```bash
+yarn add -D @umutcansu/traceflow-babel-plugin
+```
+
+```js
+// babel.config.js
+module.exports = {
+  plugins: [
+    '@umutcansu/traceflow-babel-plugin',
+  ],
+};
+```
+
+For RN run `yarn start --reset-cache` once. From then on every
+function declaration, arrow expression, class method, and async
+variant in your source ships ENTER/EXIT events with no further code.
+Generators are deferred. Full options matrix and what does/does not
+get wrapped:
+[babel-plugin/README.md](babel-plugin/README.md).
 
 ## Configuration
 
@@ -647,6 +674,7 @@ TraceFlow/
 ├── gradle-plugin/  -> Gradle plugin: ASM bytecode injection (Gradle Plugin Portal)
 ├── studio-plugin/  -> Android Studio plugin: trace viewer (JetBrains Marketplace)
 ├── runtime-js/     -> React Native / web JS runtime (npm)
+├── babel-plugin/   -> Babel plugin: auto-instrument JS/TS functions (npm)
 ├── sample-server/  -> Ktor sample server for remote log streaming
 └── docs/           -> Design docs, v2 migration, product vision
 ```
