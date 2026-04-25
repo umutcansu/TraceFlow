@@ -207,6 +207,20 @@ yarn add -D @umutcansu/traceflow-babel-plugin@^0.1.2
 The plugin now skips any filename containing `\0` anywhere, which
 covers all known Metro virtual-module conventions.
 
+**Hermes: `ReferenceError: Property '_destr_0' doesn't exist`** on a
+function with destructured parameters.
+Fixed in `0.1.3`. Earlier releases emitted shorthand `{ _destr_0 }`
+inside the generated ENTER call whenever a param was an
+`ObjectPattern` / `ArrayPattern`; those names only exist inside
+Babel's destructuring transform and are not in scope at the call
+site. Upgrade to `0.1.3+`:
+```bash
+yarn add -D @umutcansu/traceflow-babel-plugin@^0.1.3
+```
+The plugin now expands patterns into their actual bound identifiers
+(`({ user, settings })` → `params: { user, settings }`). Workaround
+for unupgraded versions: set `traceArguments: false`.
+
 ## Versioning
 
 Independent semver from the JVM artefacts. `0.x` while the API is

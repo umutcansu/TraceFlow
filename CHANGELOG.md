@@ -5,6 +5,34 @@ project follows [Semantic Versioning](https://semver.org/). Each
 component (`runtime`, `gradle-plugin`, `studio-plugin`,
 `runtime-js`, `babel-plugin`) is versioned and released independently.
 
+## `babel-plugin` [0.1.3] — 2026-04-26
+
+Fixes a Hermes boot crash on functions with destructured parameters.
+
+`0.1.2` and earlier emitted shorthand `{ _destr_0 }` references inside the
+generated `__tf_c?.enter(...)` call whenever a parameter was an
+`ObjectPattern` or `ArrayPattern`. Those `_destr_<i>` names only exist
+inside Babel's destructuring transform — at the wrapped function's call
+site nothing is bound to them, so Hermes throws
+`ReferenceError: Property '_destr_0' doesn't exist` and the app dies on
+boot. Reported in production with React Native 0.81 + Expo SDK 54 +
+Hermes 96 against a TSX login screen with `({ user, settings }: Props)`
+and `traceArguments: true`.
+
+The fix walks each pattern and emits the *actual bound identifiers* —
+`{ user, settings }` becomes `params: { user, settings }`, `{ user: u }`
+becomes `params: { u }`, `[a, b]` becomes `params: { a, b }`,
+`...rest` becomes `params: { rest }`. Anything we cannot statically
+resolve to a real bound name is dropped rather than replaced with a
+placeholder. Drop-in upgrade:
+
+```bash
+yarn add -D @umutcansu/traceflow-babel-plugin@^0.1.3
+```
+
+If you previously worked around this by setting `traceArguments: false`,
+you can flip it back on after upgrading.
+
 ## `runtime-js` [0.2.2] — 2026-04-25
 
 Adds a runtime kill-switch on top of the client.

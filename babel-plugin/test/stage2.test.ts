@@ -202,29 +202,45 @@ describe("Stage 2: function-declaration wrapping", () => {
     const src = "function f(a, b = 1, ...rest) { return rest; }";
     const out = transform(src, "/abs/path/to/p.ts");
 
-    // The params object passed to ENTER should reference each of the names
-    // from collectParamNames: `a`, `b`, and `rest_rest`.
+    // The params object passed to ENTER references the actual bound names
+    // in the function scope: `a`, `b`, and `rest`.
     assertContains(out, "__tf_c?.enter(", '"f"');
-    // The shorthand props use the names directly. We sniff for each in turn.
-    // `a` and `b` are common so we anchor on the rest case which is unique.
-    assertContains(out, "rest_rest");
     assertContains(out, "a,");
     assertContains(out, "b,");
+    // The rest binding's real in-scope name is `rest`, not `rest_rest`.
+    expect(out).toMatch(/\{\s*a,\s*b,\s*rest\s*\}/);
   });
 
-  it("uses _destr_<i> placeholders for destructured params", () => {
+  it("expands destructured object params into their bound identifiers", () => {
+    // Regression: 0.1.2 emitted shorthand `{ _destr_0 }` here, which Hermes
+    // could not resolve at the call site (the helper only exists inside
+    // Babel's destructuring transform). The fix walks the pattern and emits
+    // the actual bound names instead.
     const src = "function f({ a, b }, c) { return a + b + c; }";
     const out = transform(src, "/abs/path/to/d.ts");
 
-    assertContains(out, "_destr_0");
-    // Plain identifier param at index 1 keeps its name; the printer may put
-    // `c` either followed by a comma or as the final shorthand prop, so we
-    // sniff for the params object containing `_destr_0,` then `c` somewhere
-    // before the closing brace.
-    expect(out).toMatch(/_destr_0,\s*c\s*}/);
-    // Original destructure must still be in the function signature so the
-    // body keeps working.
+    // No more `_destr_<i>` references anywhere in the output.
+    expect(out).not.toMatch(/_destr_/);
+    // ENTER's params object holds the *bound* identifiers `a`, `b`, `c`.
+    expect(out).toMatch(/\{\s*a,\s*b,\s*c\s*\}/);
+    // Original destructure stays in the function signature.
     assertContains(out, "function f({");
     assertContains(out, "}, c)");
+  });
+
+  it("expands renamed object-pattern bindings to the renamed identifier", () => {
+    // `{ user: u }` binds `u`, not `user`. The wrapper must reference what
+    // is actually in scope.
+    const src = "function f({ user: u, settings }) { return u; }";
+    const out = transform(src, "/abs/path/to/r.ts");
+    expect(out).not.toMatch(/_destr_/);
+    expect(out).toMatch(/\{\s*u,\s*settings\s*\}/);
+  });
+
+  it("expands array-pattern params into their bound identifiers", () => {
+    const src = "function f([a, b, ...rest]) { return a + b; }";
+    const out = transform(src, "/abs/path/to/a.ts");
+    expect(out).not.toMatch(/_destr_/);
+    expect(out).toMatch(/\{\s*a,\s*b,\s*rest\s*\}/);
   });
 });

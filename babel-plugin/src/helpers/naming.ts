@@ -221,55 +221,80 @@ function nameFromAssignmentLHS(lhs: t.LVal | t.OptionalMemberExpression): string
 }
 
 /**
- * Walk a function's `params` array and emit a name for each entry.
+ * Walk a function's `params` array and emit the *actual identifiers in scope*
+ * inside the function body — these are the names the wrapper's shorthand
+ * `{ name }` ObjectExpression can safely reference at the call site.
  *
- *  - `Identifier`            → the identifier name (`a`)
+ *  - `Identifier`            → `[name]` (`a`)
  *  - `AssignmentPattern`     → recurse into `left` (default values: `a = 1`)
- *  - `RestElement`           → `${name}_rest` when the rest's argument is an
- *                              identifier, otherwise the destructure
- *                              placeholder for `_destr_${index}` semantics
- *  - `ObjectPattern` /
- *    `ArrayPattern`          → `_destr_${index}` (we cannot safely synthesize
- *                              meaningful keys without re-evaluating the
- *                              pattern at runtime, which is out of scope)
+ *  - `RestElement`           → recurse into `.argument`
+ *  - `ObjectPattern`         → for each property, the bound name (the *value*
+ *                              identifier, not the key — `{ user: u }` binds
+ *                              `u`, `{ user }` binds `user`)
+ *  - `ArrayPattern`          → recurse into each element
+ *  - `TSParameterProperty`   → recurse into `.parameter`
  *
- * Stage 2's FunctionDeclarations realistically only contain identifier
- * params, but the destructuring fallback keeps the helper future-proof for
- * Stages 3+.
+ * Anything we cannot statically resolve to a real bound identifier is dropped,
+ * NOT replaced with a `_destr_${index}` placeholder. The previous behaviour
+ * emitted shorthand `{ _destr_0 }` references that Hermes (and any honest JS
+ * runtime) cannot resolve, since those names only exist inside Babel's
+ * destructuring transform — see issue: traceArguments crash on object pattern
+ * params (fixed in 0.1.3).
  */
 export function collectParamNames(params: t.Function["params"]): string[] {
   const out: string[] = [];
-
-  params.forEach((p, index) => {
-    out.push(nameForParam(p, index));
-  });
-
+  for (const p of params) {
+    collectBoundNames(p, out);
+  }
   return out;
 }
 
-/** Internal: name a single param by node shape. */
-function nameForParam(node: t.Node, index: number): string {
+/** Walk a pattern node and append every bound identifier to `out`. */
+function collectBoundNames(node: t.Node, out: string[]): void {
   if (t.isIdentifier(node)) {
-    return node.name;
+    out.push(node.name);
+    return;
   }
 
   if (t.isAssignmentPattern(node)) {
-    // Default value: descend into the pattern on the left-hand side.
-    return nameForParam(node.left, index);
+    collectBoundNames(node.left, out);
+    return;
   }
 
   if (t.isRestElement(node)) {
-    if (t.isIdentifier(node.argument)) {
-      return `${node.argument.name}_rest`;
+    collectBoundNames(node.argument, out);
+    return;
+  }
+
+  if (t.isObjectPattern(node)) {
+    for (const prop of node.properties) {
+      if (t.isRestElement(prop)) {
+        collectBoundNames(prop.argument, out);
+      } else if (t.isObjectProperty(prop)) {
+        // The *value* is what gets bound in the function scope.
+        // `{ user }` → value is Identifier("user"); `{ user: u }` → value is
+        // Identifier("u"); `{ user: { id } }` → value is ObjectPattern, recurse.
+        collectBoundNames(prop.value as t.Node, out);
+      }
     }
-    return `_destr_${index}`;
+    return;
   }
 
-  if (t.isObjectPattern(node) || t.isArrayPattern(node)) {
-    return `_destr_${index}`;
+  if (t.isArrayPattern(node)) {
+    for (const el of node.elements) {
+      if (el) collectBoundNames(el, out);
+    }
+    return;
   }
 
-  // TSParameterProperty (TypeScript) and any other exotic shape: fall back to
-  // the destructure placeholder so we always emit a valid key.
-  return `_destr_${index}`;
+  // TSParameterProperty: `constructor(public foo: Foo)` — bound name lives on
+  // .parameter.
+  if ((node as { type: string }).type === "TSParameterProperty") {
+    const inner = (node as unknown as { parameter: t.Node }).parameter;
+    if (inner) collectBoundNames(inner, out);
+    return;
+  }
+
+  // Anything else (computed-only patterns, exotic shapes): drop silently.
+  // Better to under-report than emit an unresolvable reference.
 }
