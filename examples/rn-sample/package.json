@@ -1,0 +1,17 @@
+{
+  "name": "traceflow-rn-sample",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Minimal demo wiring @umutcansu/traceflow-runtime + @umutcansu/traceflow-babel-plugin together. Mirrors the integration shape of a real React Native project; runs in Node via simulate.mjs without needing iOS/Android tooling.",
+  "scripts": {
+    "simulate": "node simulate.mjs"
+  },
+  "dependencies": {
+    "@umutcansu/traceflow-runtime": "^0.2.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-typescript": "^7.24.0",
+    "@umutcansu/traceflow-babel-plugin": "^0.1.0"
+  }
+}
