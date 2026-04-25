@@ -193,6 +193,20 @@ The plugin now uses `@babel/helper-module-imports#addNamed`, which
 adapts the syntax to whatever module system the consuming preset
 ends up emitting.
 
+**Hermes: `ReferenceError: Property 'require' doesn't exist`** at app
+boot.
+Fixed in `0.1.2`. Metro injects virtual polyfill modules whose
+filename contains an embedded NUL byte (e.g.
+`/abs/project/\0polyfill:external-require`). `0.1.1` only skipped
+filenames *starting* with `\0`, so these polyfills were instrumented
+and the wrapper's `require()` call ran before Metro's `require`
+shim was registered. Upgrade to `0.1.2+`:
+```bash
+yarn add -D @umutcansu/traceflow-babel-plugin@^0.1.2
+```
+The plugin now skips any filename containing `\0` anywhere, which
+covers all known Metro virtual-module conventions.
+
 ## Versioning
 
 Independent semver from the JVM artefacts. `0.x` while the API is
