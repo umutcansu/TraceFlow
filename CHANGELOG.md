@@ -5,6 +5,31 @@ project follows [Semantic Versioning](https://semver.org/). Each
 component (`runtime`, `gradle-plugin`, `studio-plugin`,
 `runtime-js`, `babel-plugin`) is versioned and released independently.
 
+## `runtime-js` [0.2.2] — 2026-04-25
+
+Adds a runtime kill-switch on top of the client.
+
+```ts
+import { initTraceFlow, setEnabled, isEnabled } from "@umutcansu/traceflow-runtime";
+
+initTraceFlow({ endpoint, appId, platform: "react-native" });
+setEnabled(false);   // every emitter on the active client becomes a no-op
+isEnabled();         // → false
+setEnabled(true);    // resumes immediately
+```
+
+The flag also exists on `TraceFlowClient` (`client.setEnabled(...)` /
+`client.enabled`). When disabled, `enter` / `exit` / `caught` /
+`captureException` / `trace` / `traceAsync` short-circuit at the
+shared `push()` helper. The buffer stays intact and the flush loop
+keeps running, so re-enabling resumes immediately without needing
+a `shutdown()` + `initTraceFlow()` round-trip.
+
+Useful when you want to toggle tracing from a debug menu, a feature
+flag, or a remote config without rebuilding the bundle. Compile-time
+opt-out (the babel-plugin's `enabled` option) is still the right
+choice for stripping all instrumentation overhead in production.
+
 ## `runtime-js` [0.2.1] — 2026-04-25
 
 Bug fix for React Native deployments. On RN/Hermes (verified on

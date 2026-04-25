@@ -35,6 +35,17 @@ export interface TraceFlowClient {
   enter(className: string, method: string, params?: Record<string, unknown>): void;
   exit(className: string, method: string, result?: unknown, durationMs?: number): void;
   setUserId(userId: string | null): void;
+  /**
+   * Runtime kill-switch. When `false`, every event-emitting method on the
+   * client (enter/exit/caught/captureException/trace/traceAsync) becomes a
+   * no-op without tearing down the buffer or the flush loop. Re-enabling
+   * resumes immediately. Use to silence tracing in a running app — e.g.
+   * from a debug menu — without the cost of a full `shutdown()` +
+   * `initTraceFlow()` round-trip.
+   */
+  setEnabled(value: boolean): void;
+  /** Whether `setEnabled` is currently allowing events through. */
+  readonly enabled: boolean;
   /** Force an immediate flush. Safe to await. */
   flush(): Promise<void>;
   shutdown(): Promise<void>;
@@ -87,7 +98,14 @@ export function initTraceFlow(cfg: TraceFlowConfig): TraceFlowClient {
     ts: Date.now(),
   });
 
+  // Runtime kill-switch shared across every event-emitting helper. When
+  // `enabled` flips to false, `push` short-circuits — the buffer stays
+  // intact, the flush loop keeps running (it just has nothing to flush),
+  // and re-enabling resumes producing events immediately.
+  let enabled = true;
+
   const push = (partial: Partial<TraceEvent> & { type: TraceEventType }) => {
+    if (!enabled) return;
     buffer.push({ ...baseFields(), ...partial } as TraceEvent);
   };
 
@@ -191,6 +209,13 @@ export function initTraceFlow(cfg: TraceFlowConfig): TraceFlowClient {
       userIdOverride = userId;
     },
 
+    setEnabled(value) {
+      enabled = !!value;
+    },
+    get enabled() {
+      return enabled;
+    },
+
     flush() { return sender.flush(); },
 
     async shutdown() {
@@ -224,6 +249,19 @@ export function traceAsync<T>(name: string, fn: () => Promise<T>): Promise<T> {
 
 export function setUserId(userId: string | null): void {
   activeClient?.setUserId(userId);
+}
+
+/**
+ * Module-level mirror of `client.setEnabled`. Safe to call before
+ * `initTraceFlow` (becomes a no-op until a client exists).
+ */
+export function setEnabled(value: boolean): void {
+  activeClient?.setEnabled(value);
+}
+
+/** Whether the active client is currently producing events. */
+export function isEnabled(): boolean {
+  return activeClient?.enabled ?? false;
 }
 
 export async function shutdown(): Promise<void> {
