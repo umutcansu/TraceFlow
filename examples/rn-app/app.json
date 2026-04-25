@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "traceflow-rn-app",
+    "slug": "traceflow-rn-app",
+    "version": "0.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": { "supportsTablet": false },
+    "android": {},
+    "jsEngine": "hermes"
+  }
+}
