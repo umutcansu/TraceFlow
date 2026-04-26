@@ -5,9 +5,9 @@ project follows [Semantic Versioning](https://semver.org/). Each
 component (`runtime`, `gradle-plugin`, `studio-plugin`,
 `runtime-js`, `babel-plugin`) is versioned and released independently.
 
-## Android stack [2.0.2] — 2026-04-26
+## `studio-plugin` [2.0.2] — 2026-04-26
 
-`studio-plugin` only — adds a **User** column to the flat event table.
+Adds a **User** column to the flat event table.
 
 The `userId` field has been on the wire since schema v2 and on the
 `TraceEvent` model since 2.0.0, but the studio-plugin's flat table did
@@ -20,9 +20,8 @@ hidden (same as Platform / App / Manufacturer / Device / Tag — toggle
 from the column menu). Renders `event.userId` or empty string when
 absent. No model, wire, or runtime changes — purely a display addition.
 
-`runtime`, `gradle-plugin` versions bump to 2.0.2 in lockstep with the
-studio-plugin so the version table stays aligned, but they ship
-identical bytes to 2.0.1.
+`runtime` and `gradle-plugin` stay at `2.0.1`; this is a studio-plugin-
+only patch, no Maven Central / Plugin Portal re-publish needed.
 
 ## `babel-plugin` [0.1.3] — 2026-04-26
 
