@@ -5,6 +5,25 @@ project follows [Semantic Versioning](https://semver.org/). Each
 component (`runtime`, `gradle-plugin`, `studio-plugin`,
 `runtime-js`, `babel-plugin`) is versioned and released independently.
 
+## Android stack [2.0.2] — 2026-04-26
+
+`studio-plugin` only — adds a **User** column to the flat event table.
+
+The `userId` field has been on the wire since schema v2 and on the
+`TraceEvent` model since 2.0.0, but the studio-plugin's flat table did
+not expose it as a column. You could only filter by user (toolbar
+"User:" input → `?userId=` query param), not see at a glance which
+user produced a given event when the filter was empty.
+
+The new column sits between **App** and **Manufacturer**, default-
+hidden (same as Platform / App / Manufacturer / Device / Tag — toggle
+from the column menu). Renders `event.userId` or empty string when
+absent. No model, wire, or runtime changes — purely a display addition.
+
+`runtime`, `gradle-plugin` versions bump to 2.0.2 in lockstep with the
+studio-plugin so the version table stays aligned, but they ship
+identical bytes to 2.0.1.
+
 ## `babel-plugin` [0.1.3] — 2026-04-26
 
 Fixes a Hermes boot crash on functions with destructured parameters.

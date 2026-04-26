@@ -64,9 +64,9 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
   private val fromTimeField = JTextField(16).apply { toolTipText = "From (yyyy-MM-dd HH:mm:ss or HH:mm:ss)" }
   private val toTimeField   = JTextField(16).apply { toolTipText = "To (yyyy-MM-dd HH:mm:ss or HH:mm:ss). Leave empty for no upper bound." }
 
-  // Column visibility — Platform/App hidden by default, same pattern as Manufacturer/Device/Tag
-  private val columnNames = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Platform", "App", "Manufacturer", "Device", "Tag", "Detail")
-  private val columnVisible = columnNames.associateWith { JCheckBox(it, it !in listOf("Platform", "App", "Manufacturer", "Device", "Tag")) }
+  // Column visibility — Platform/App/User hidden by default, same pattern as Manufacturer/Device/Tag
+  private val columnNames = listOf("Date", "Time", "Type", "Class", "Method", "File:Line", "Platform", "App", "User", "Manufacturer", "Device", "Tag", "Detail")
+  private val columnVisible = columnNames.associateWith { JCheckBox(it, it !in listOf("Platform", "App", "User", "Manufacturer", "Device", "Tag")) }
 
   // Grouped view column visibility
   private val groupedColumnNames = listOf("Label", "Date", "Time", "Type", "File:Line", "Manufacturer", "Device", "Tag", "Detail")
@@ -157,10 +157,11 @@ class TraceFlowPanel(private val project: Project) : JPanel(BorderLayout()) {
     table.columnModel.getColumn(5).preferredWidth = 140  // File:Line
     table.columnModel.getColumn(6).preferredWidth = 70   // Platform
     table.columnModel.getColumn(7).preferredWidth = 140  // App
-    table.columnModel.getColumn(8).preferredWidth = 90   // Manufacturer
-    table.columnModel.getColumn(9).preferredWidth = 100  // Device
-    table.columnModel.getColumn(10).preferredWidth = 80  // Tag
-    table.columnModel.getColumn(11).preferredWidth = 400 // Detail
+    table.columnModel.getColumn(8).preferredWidth = 100  // User
+    table.columnModel.getColumn(9).preferredWidth = 90   // Manufacturer
+    table.columnModel.getColumn(10).preferredWidth = 100 // Device
+    table.columnModel.getColumn(11).preferredWidth = 80  // Tag
+    table.columnModel.getColumn(12).preferredWidth = 400 // Detail
 
     // Color the Type column
     table.columnModel.getColumn(2).cellRenderer = TypeColorRenderer()
