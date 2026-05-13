@@ -5,27 +5,31 @@ project follows [Semantic Versioning](https://semver.org/). Each
 component (`runtime`, `gradle-plugin`, `studio-plugin`,
 `runtime-js`, `babel-plugin`) is versioned and released independently.
 
-## `gradle-plugin` [2.0.2] — 2026-05-13
+## `gradle-plugin` [2.0.3] — 2026-05-13
 
 Fixes "Dependency requires at least JVM runtime version 21" on JDK 17
 builds.
 
-`1.0.4` through `2.0.1` were compiled with `jvmToolchain(21)`, which
+`1.0.4` through `2.0.2` were compiled with `jvmToolchain(21)`, which
 baked JVM 21 bytecode into the plugin descriptor. Gradle refuses to
 load such a plugin on a JDK 17 daemon, even though AGP 8.2.2 (the
 plugin's only real Android dependency) itself requires only JDK 17.
 Consumers on the still-very-common JDK 17 setup hit the error at the
 `plugins { ... }` resolution step and could not apply TraceFlow at all.
 
-The fix lowers the toolchain to `jvmToolchain(17)`. No source change —
-the plugin never used any Java 21 API (verified across the seven
-sources under `gradle-plugin/src/main/kotlin`).
+The fix drops the toolchain requirement entirely and sets explicit Java
+17 source/target compatibility plus Kotlin `jvmTarget = JVM_17`. This
+targets Java 17 bytecode using whatever JDK Gradle is already running
+on (JDK 17 or JDK 21), so neither the build machine nor the consumer
+needs JDK 17 installed for the plugin to load. No source change — the
+plugin never used any Java 21 API (verified across the seven sources
+under `gradle-plugin/src/main/kotlin`).
 
 Drop-in upgrade:
 
 ```kotlin
 plugins {
-  id("io.github.umutcansu.traceflow") version "2.0.2"
+  id("io.github.umutcansu.traceflow") version "2.0.3"
 }
 ```
 
