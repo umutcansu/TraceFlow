@@ -5,6 +5,31 @@ project follows [Semantic Versioning](https://semver.org/). Each
 component (`runtime`, `gradle-plugin`, `studio-plugin`,
 `runtime-js`, `babel-plugin`) is versioned and released independently.
 
+## `gradle-plugin` [2.0.2] — 2026-05-13
+
+Fixes "Dependency requires at least JVM runtime version 21" on JDK 17
+builds.
+
+`1.0.4` through `2.0.1` were compiled with `jvmToolchain(21)`, which
+baked JVM 21 bytecode into the plugin descriptor. Gradle refuses to
+load such a plugin on a JDK 17 daemon, even though AGP 8.2.2 (the
+plugin's only real Android dependency) itself requires only JDK 17.
+Consumers on the still-very-common JDK 17 setup hit the error at the
+`plugins { ... }` resolution step and could not apply TraceFlow at all.
+
+The fix lowers the toolchain to `jvmToolchain(17)`. No source change —
+the plugin never used any Java 21 API (verified across the seven
+sources under `gradle-plugin/src/main/kotlin`). The `runtime` module
+stays at `2.0.1` (already on Java 17).
+
+Drop-in upgrade:
+
+```kotlin
+plugins {
+  id("io.github.umutcansu.traceflow") version "2.0.2"
+}
+```
+
 ## `studio-plugin` [2.0.2] — 2026-04-26
 
 Adds a **User** column to the flat event table.
