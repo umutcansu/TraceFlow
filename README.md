@@ -16,7 +16,7 @@ branch logging; no manual log statements needed on Android.
 
 | Package | Latest | Notes |
 |---|---|---|
-| `io.github.umutcansu:traceflow-runtime` | **2.0.1** | Maven Central |
+| `io.github.umutcansu:traceflow-runtime` | **2.0.2** | Maven Central |
 | `io.github.umutcansu.traceflow` (Gradle plugin) | **2.0.2** | Plugin Portal — lower JVM target 21→17 so the plugin loads on JDK 17 builds (`2.0.2`) |
 | Android Studio plugin | **2.0.2** | JetBrains Marketplace — adds **User** column to the flat event table (default-hidden, toggle from column menu) (`2.0.2`); envelope grace-parse for the v2 server's `{events, nextCursor}` response (`2.0.1`) |
 | `@umutcansu/traceflow-runtime` | **0.2.2** | npm — `setEnabled(boolean)` runtime kill-switch (`0.2.2`); RN gzip header strip fix (`0.2.1`); `caught()` API for the babel-plugin (`0.2.0`) |
@@ -86,7 +86,7 @@ Full details: [CHANGELOG.md](CHANGELOG.md) and
 
 ```kotlin
 dependencies {
-  implementation("io.github.umutcansu:traceflow-runtime:2.0.1")
+  implementation("io.github.umutcansu:traceflow-runtime:2.0.2")
 }
 ```
 </details>
@@ -96,7 +96,7 @@ dependencies {
 
 ```groovy
 dependencies {
-  implementation 'io.github.umutcansu:traceflow-runtime:2.0.1'
+  implementation 'io.github.umutcansu:traceflow-runtime:2.0.2'
 }
 ```
 </details>

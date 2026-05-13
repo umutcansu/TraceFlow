@@ -19,8 +19,7 @@ Consumers on the still-very-common JDK 17 setup hit the error at the
 
 The fix lowers the toolchain to `jvmToolchain(17)`. No source change —
 the plugin never used any Java 21 API (verified across the seven
-sources under `gradle-plugin/src/main/kotlin`). The `runtime` module
-stays at `2.0.1` (already on Java 17).
+sources under `gradle-plugin/src/main/kotlin`).
 
 Drop-in upgrade:
 
